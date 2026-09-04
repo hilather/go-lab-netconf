@@ -1,6 +1,4 @@
 // Package notif is the in-process config-change notification port.
-//
-// FND-001 ships Sink, Waiter, and Nop. The bounded ring lands in NOTIF-001.
 package notif
 
 import (
@@ -52,7 +50,7 @@ type Waiter interface {
 	Wipe()
 }
 
-// Nop is the FND-001 stand-in. OnCommit/Wait/Wipe are no-ops; Wait returns wait_timeout.
+// Nop is a no-op Sink and Waiter. Wait returns wait_timeout.
 type Nop struct{}
 
 var (
