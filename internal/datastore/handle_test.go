@@ -134,21 +134,30 @@ func TestStoreGenerationIncrementsOnCommitAndCopyConfig(t *testing.T) {
 
 func TestFailedValidateLeavesCandidateIntact(t *testing.T) {
 	schema := []model.SchemaLeaf{
+		{Path: "ietf-system:system", Type: "container"},
 		{Path: hostnamePath, Type: "int32", Access: "write"},
 	}
-	n, err := yangtree.Compile(hostnameInstance("lab-rtr-a"), schema)
+	running, err := yangtree.Compile(map[string]any{
+		"ietf-system": map[string]any{"system": map[string]any{"hostname": 1}},
+	}, schema)
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := New("router-a", n, n, n, nil)
+	candidate, err := yangtree.Compile(map[string]any{
+		"ietf-system": map[string]any{"system": map[string]any{"hostname": "still-dirty"}},
+	}, schema)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := New("router-a", running, candidate, running, nil)
 	g0 := h.Generation()
 	err = h.Commit(context.Background())
 	requireCode(t, err, domainerr.CodeValidationFailed)
-	if hostname(t, h, Candidate) != "lab-rtr-a" {
-		t.Fatalf("candidate after failed validate = %q", hostname(t, h, Candidate))
+	if got := leaf(t, h, Candidate); got != "still-dirty" {
+		t.Fatalf("candidate after failed validate = %v, want still-dirty", got)
 	}
-	if hostname(t, h, Running) != "lab-rtr-a" {
-		t.Fatalf("running after failed validate = %q", hostname(t, h, Running))
+	if got := leaf(t, h, Running); got != 1 {
+		t.Fatalf("running after failed validate = %v, want 1", got)
 	}
 	if h.Generation() != g0 {
 		t.Fatalf("generation changed on failed validate: %d", h.Generation())
@@ -156,7 +165,9 @@ func TestFailedValidateLeavesCandidateIntact(t *testing.T) {
 }
 
 func TestWriteRunningIfCandidateClean(t *testing.T) {
-	h := newHandle(t, "router-a", "lab-rtr-a", nil)
+	s := &recordingSink{}
+	h := newHandle(t, "router-a", "lab-rtr-a", s)
+	g0 := h.Generation()
 	op := EditOp{Op: yangtree.OpMerge, Path: hostnamePath, Value: "restconf"}
 	if err := h.WriteRunningIfCandidateClean(context.Background(), op); err != nil {
 		t.Fatal(err)
@@ -166,6 +177,12 @@ func TestWriteRunningIfCandidateClean(t *testing.T) {
 	}
 	if h.Dirty() {
 		t.Fatal("dirty after clean RESTCONF write")
+	}
+	if h.Generation() != g0 {
+		t.Fatalf("clean RESTCONF write incremented generation: %d -> %d", g0, h.Generation())
+	}
+	if s.calls != 0 {
+		t.Fatalf("OnCommit called %d times on RESTCONF write (autoCommit)", s.calls)
 	}
 
 	mergeHostname(t, h, "netconf-pending")
@@ -187,7 +204,35 @@ func TestWriteRunningIfCandidateClean(t *testing.T) {
 	err = h.WriteRunningIfCandidateClean(context.Background(), EditOp{Op: yangtree.OpMerge, Path: hostnamePath, Value: "locked"})
 	requireCode(t, err, domainerr.CodeCandidateDirty)
 	if hostname(t, h, Running) != "restconf" {
-		t.Fatalf("running mutated while locked = %q", hostname(t, h, Running))
+		t.Fatalf("running mutated while candidate locked = %q", hostname(t, h, Running))
+	}
+	if hostname(t, h, Candidate) != "restconf" {
+		t.Fatalf("candidate mutated while candidate locked = %q", hostname(t, h, Candidate))
+	}
+	if s.calls != 0 {
+		t.Fatalf("OnCommit called after locked RESTCONF write: %d", s.calls)
+	}
+}
+
+func TestWriteRunningIfCandidateCleanRunningLocked(t *testing.T) {
+	h := newHandle(t, "router-a", "lab-rtr-a", nil)
+	if err := h.Lock(context.Background(), Running, "sess-a"); err != nil {
+		t.Fatal(err)
+	}
+	err := h.WriteRunningIfCandidateClean(context.Background(), EditOp{Op: yangtree.OpMerge, Path: hostnamePath, Value: "bypass"})
+	requireCode(t, err, domainerr.CodeLockDenied)
+	if hostname(t, h, Running) != "lab-rtr-a" {
+		t.Fatalf("running mutated while running locked = %q", hostname(t, h, Running))
+	}
+	if hostname(t, h, Candidate) != "lab-rtr-a" {
+		t.Fatalf("candidate mutated while running locked = %q", hostname(t, h, Candidate))
+	}
+	ctxA := WithSessionID(context.Background(), "sess-a")
+	if err := h.WriteRunningIfCandidateClean(ctxA, EditOp{Op: yangtree.OpMerge, Path: hostnamePath, Value: "from-holder"}); err != nil {
+		t.Fatal(err)
+	}
+	if hostname(t, h, Running) != "from-holder" || hostname(t, h, Candidate) != "from-holder" {
+		t.Fatalf("lock-holder RESTCONF write running=%q candidate=%q", hostname(t, h, Running), hostname(t, h, Candidate))
 	}
 }
 

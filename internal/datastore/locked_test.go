@@ -34,6 +34,13 @@ func TestCommitMovesCandidateToRunning(t *testing.T) {
 	if h.Dirty() {
 		t.Fatal("dirty after commit")
 	}
+	mergeHostname(t, h, "next-candidate")
+	if hostname(t, h, Running) != "after-commit" {
+		t.Fatalf("running aliased candidate after commit = %q", hostname(t, h, Running))
+	}
+	if hostname(t, h, Candidate) != "next-candidate" {
+		t.Fatalf("candidate after post-commit edit = %q", hostname(t, h, Candidate))
+	}
 }
 
 func TestDiscardRestoresCandidateFromRunning(t *testing.T) {
@@ -56,6 +63,13 @@ func TestDiscardRestoresCandidateFromRunning(t *testing.T) {
 	}
 	if h.Dirty() {
 		t.Fatal("dirty after discard")
+	}
+	mergeHostname(t, h, "scratch-again")
+	if hostname(t, h, Running) != "lab-rtr-a" {
+		t.Fatalf("running aliased candidate after discard = %q", hostname(t, h, Running))
+	}
+	if hostname(t, h, Candidate) != "scratch-again" {
+		t.Fatalf("candidate after post-discard edit = %q", hostname(t, h, Candidate))
 	}
 }
 

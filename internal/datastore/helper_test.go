@@ -45,16 +45,22 @@ func newHandle(t *testing.T, profile, hostname string, sink CommitSink) Handle {
 
 func hostname(t *testing.T, h Handle, store Name) string {
 	t.Helper()
+	v := leaf(t, h, store)
+	s, _ := v.(string)
+	return s
+}
+
+func leaf(t *testing.T, h Handle, store Name) any {
+	t.Helper()
 	n, err := h.Get(context.Background(), store, Subtree{Path: hostnamePath})
 	if err != nil {
 		t.Fatal(err)
 	}
 	v, ok := n.Lookup(hostnamePath)
 	if !ok {
-		return ""
+		return nil
 	}
-	s, _ := v.(string)
-	return s
+	return v
 }
 
 func mergeHostname(t *testing.T, h Handle, value string) {

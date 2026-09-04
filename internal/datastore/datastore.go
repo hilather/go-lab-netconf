@@ -51,7 +51,8 @@ type Handle interface {
 	Edit(ctx context.Context, store Name, op EditOp) error
 	// WriteRunningIfCandidateClean applies op to running and copy-forwards
 	// onto candidate when candidate is clean and unlocked; otherwise
-	// candidate_dirty.
+	// candidate_dirty. A lock on running held by another session is
+	// lock_denied.
 	WriteRunningIfCandidateClean(ctx context.Context, op EditOp) error
 	Copy(ctx context.Context, src, dst Name) error
 	Delete(ctx context.Context, store Name) error
@@ -164,6 +165,9 @@ func (h *handle) WriteRunningIfCandidateClean(ctx context.Context, op EditOp) er
 	}
 	if _, held := h.locks[Candidate]; held {
 		return domainerr.CandidateDirty("candidate is locked")
+	}
+	if err := h.denyIfLocked(Running, sessionIDFrom(ctx)); err != nil {
+		return err
 	}
 	r := h.running.Clone()
 	c := h.candidate.Clone()
