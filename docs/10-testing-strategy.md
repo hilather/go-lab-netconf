@@ -12,7 +12,12 @@ packages `netconfssh`, `ncserver`, `ncframing`, `ncrpc`,
 (sysrepo/netopeer2/confd/openyuma/nso/freeconf/yangson); forbidden
 exec basenames `netopeer2-server`, `sysrepod`, `confd`.
 
-Config matrix under testdata/config. REST contracts. MCP parity.
+Config matrix under testdata/config (`valid/defaults.yaml`,
+`valid/full.yaml`, `valid/split-horizon.yaml`,
+`valid/both-credentials.yaml`, omitted vs empty
+`allowClientCidrs`). REST contracts. MCP parity.
 Fuzz ncframing. Container script on :1830 / :8303.
-Locks: framing 1.0 and 1.1, candidate isolation, commit visible on
-RESTCONF GET, discard restores, unknown user 401, reserved-key reject.
+Locks: KnownFields unknown fields, reserved-key reject,
+`tls.enabled: true` reject, `writableRunning: true` reject,
+framing 1.0 and 1.1, candidate isolation, commit visible on
+RESTCONF GET, discard restores, unknown user 401.

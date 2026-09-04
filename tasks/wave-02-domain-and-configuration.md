@@ -1,6 +1,6 @@
 # CFG-001 — Domain and fail-closed YAML
 
-Status: not-started
+Status: complete
 Depends: FND-001
 Owns: internal/model, internal/config, testdata/config
 

@@ -16,4 +16,5 @@ This is not a production NMS, not ConfD, and not netopeer2.
 | RESTCONF | `:8303` · host residual **18303** |
 | Control | `/v1` `/mcp` `/` · host **18830** |
 
-Status: FND-001 repository foundation. Start at `START-HERE.md` and `AGENTS.md`.
+Status: fail-closed `labnetconf.dev/v1alpha1` YAML loads via
+`labnetconf validate`. Start at `START-HERE.md` and `AGENTS.md`.

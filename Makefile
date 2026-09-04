@@ -28,7 +28,7 @@ help:
 		'  test-docs           required documents, metadata, links, and required phrases' \
 		'  security-scan       govulncheck' \
 		'  test-parity         REST/MCP capability parity goldens (MCP-001)' \
-		'  test-config-compat  positive+negative v1alpha1 config fixtures (CFG-001)' \
+		'  test-config-compat  positive+negative v1alpha1 config fixtures' \
 		'  web-install         npm ci in web/ (UI-001)' \
 		'  web-test            Vitest operator SPA tests (UI-001)' \
 		'  web-build           production Vite build + copy into internal/web/dist (UI-001)' \
@@ -79,8 +79,7 @@ test-parity:
 	@exit 1
 
 test-config-compat:
-	@echo 'test-config-compat: not implemented until CFG-001' >&2
-	@exit 1
+	$(GO) test ./internal/config -run TestConfigCompat -count=1
 
 web-install:
 	@echo 'web-install: not implemented until UI-001' >&2

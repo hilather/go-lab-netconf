@@ -1,0 +1,44 @@
+apiVersion: labnetconf.dev/v1alpha1
+kind: LabNETCONF
+metadata:
+  name: split-horizon
+spec:
+  listeners:
+    netconf:
+      hostKeyFile: /run/secrets/labnetconf-hostkey
+  profiles:
+    - name: router-a
+      modules:
+        - name: ietf-system
+          revision: "2014-08-06"
+          namespace: "urn:ietf:params:xml:ns:yang:ietf-system"
+      schema:
+        - path: "ietf-system:system/hostname"
+          type: string
+          access: write
+      instance:
+        ietf-system:
+          system:
+            hostname: "lab-rtr-a"
+    - name: router-b
+      modules:
+        - name: ietf-system
+          revision: "2014-08-06"
+          namespace: "urn:ietf:params:xml:ns:yang:ietf-system"
+      schema:
+        - path: "ietf-system:system/hostname"
+          type: string
+          access: write
+      instance:
+        ietf-system:
+          system:
+            hostname: "lab-rtr-b"
+  users:
+    - name: alice
+      passwordFile: /run/secrets/netconf-alice
+      profile: router-a
+      access: read-write
+    - name: vendor
+      passwordFile: /run/secrets/netconf-vendor
+      profile: router-b
+      access: read

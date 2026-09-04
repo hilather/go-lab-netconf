@@ -60,4 +60,5 @@ Administrator has all. Reader has `netconf.read`.
 `validation_failed`, `unknown_field`, `reserved_key`, `immutable_field`,
 `revision_mismatch`, `not_found`, `lock_denied`, `not_writable`,
 `wait_timeout`, `store_wiped`, `unauthorized`, `forbidden`,
-`origin_not_allowed`, `tls_unsupported`, `callhome_unsupported`.
+`origin_not_allowed`, `tls_unsupported`, `callhome_unsupported`,
+`candidate_dirty`.

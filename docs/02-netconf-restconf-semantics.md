@@ -49,7 +49,8 @@ RESTCONF writes running directly **or** we freeze: RESTCONF writes running (typi
 
 ## Identity
 
-SSH user (passwordFile XOR authorizedKeysFile) → profile + access `read` \| `read-write`.
+SSH user (`passwordFile` and/or `authorizedKeysFile`; both factors
+allowed) → profile + access `read` \| `read-write`.
 RESTCONF Basic against the same `spec.users[]`.
 Unknown user: SSH auth fail / RESTCONF 401.
 Wrong profile isolation: user B cannot read user A's tree.

@@ -1,0 +1,25 @@
+apiVersion: labnetconf.dev/v1alpha1
+kind: LabNETCONF
+metadata:
+  name: x
+spec:
+  manager:
+    endpoint: "1.2.3.4"
+  listeners:
+    netconf:
+      hostKeyFile: /run/secrets/labnetconf-hostkey
+  profiles:
+    - name: router-a
+      schema:
+        - path: "ietf-system:system/hostname"
+          type: string
+          access: write
+      instance:
+        ietf-system:
+          system:
+            hostname: "x"
+  users:
+    - name: alice
+      passwordFile: /run/secrets/netconf-alice
+      profile: router-a
+      access: read-write

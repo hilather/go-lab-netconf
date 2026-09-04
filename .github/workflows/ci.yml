@@ -1,9 +1,9 @@
 # LabNETCONF continuous integration.
 #
 # Required jobs: format, lint, unit, race, documentation, changelog,
-# security-scan. Do not mark a failing check optional. Do not add
-# parity/container/web/fuzz/config-compat/generate jobs until those
-# Make targets are real.
+# security-scan, config-compat. Do not mark a failing check optional.
+# Do not add parity/container/web/fuzz/generate jobs until those Make
+# targets are real.
 
 name: CI
 
@@ -99,6 +99,18 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
       - name: Documentation checks
         run: make test-docs
+
+  config-compat:
+    name: config-compat
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Config compatibility fixtures
+        run: make test-config-compat
 
   changelog:
     name: changelog

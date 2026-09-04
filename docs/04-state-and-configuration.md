@@ -85,12 +85,19 @@ spec:
 | `listeners.netconfTls.enabled` | false | `true` → 1.0 validate error |
 | `auth.mode` | `bearer` | `spec.management.auth` unknown |
 | `netconf.writableRunning` | false | `true` → 1.0 validate error |
-| `admission.allowClientCidrs` | loopback if omitted | lab overlay sets compose subnet |
+| `admission.allowClientCidrs` | loopback (`127.0.0.0/8`, `::1/128`) if omitted | present `[]` is deny-all; lab overlay sets compose subnet |
+| `spec.users[]` credentials | at least one file path | `passwordFile` and/or `authorizedKeysFile` (both allowed) |
 
 At least one user and one profile required if either data plane is
 enabled. Each user `profile` must exist. User names unique.
-Host key and password files required to *serve*, not to `validate`
-the document (validate checks path non-empty).
+Host key, password, authorized-keys, and token `secretFile` paths
+must be non-empty at `validate`; bytes must exist to *serve*.
+If a token file is present, it must be at least 32 bytes.
+
+Unknown fields and kebab-case aliases reject (`unknown_field`).
+Reserved keys `callHome*` / `manager*` / `remote*` reject except
+the 1.0 schema keys `listeners.callHome` and `listeners.netconfTls`
+(those reject only when `enabled: true`).
 
 ## Revision
 

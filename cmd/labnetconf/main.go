@@ -25,7 +25,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 	case "version", "-v", "--version":
 		_, _ = fmt.Fprintln(stdout, buildinfo.Current().String())
 		return 0
-	case "validate", "canonicalize", "serve", "healthcheck", "mcp-stdio":
+	case "validate":
+		return validateCmd(args[2:], stdout, stderr)
+	case "canonicalize":
+		return canonicalizeCmd(args[2:], stdout, stderr)
+	case "serve", "healthcheck", "mcp-stdio":
 		return notImplemented(args[1], stderr)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown command: %s\n", args[1])

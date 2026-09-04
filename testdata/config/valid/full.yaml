@@ -1,0 +1,60 @@
+apiVersion: labnetconf.dev/v1alpha1
+kind: LabNETCONF
+metadata:
+  name: lab-device
+spec:
+  listeners:
+    netconf:
+      enabled: true
+      address: ":830"
+      hostKeyFile: /run/secrets/labnetconf-hostkey
+    restconf:
+      enabled: true
+      address: ":8303"
+      tls:
+        enabled: false
+    management:
+      address: ":8088"
+      restPath: /v1
+      mcpPath: /mcp
+  auth:
+    mode: bearer
+    tokens:
+      - id: admin
+        role: administrator
+        secretFile: /run/secrets/labnetconf-token
+  ui:
+    enabled: true
+  netconf:
+    versions: ["1.0", "1.1"]
+    writableRunning: false
+    notifications:
+      enabled: true
+    sharedProfileDatastore: false
+  restconf:
+    json: true
+    xml: false
+  admission:
+    allowClientCidrs:
+      - "10.99.42.0/24"
+      - "127.0.0.0/8"
+      - "::1/128"
+  profiles:
+    - name: router-a
+      modules:
+        - name: ietf-system
+          revision: "2014-08-06"
+          namespace: "urn:ietf:params:xml:ns:yang:ietf-system"
+      schema:
+        - path: "ietf-system:system/hostname"
+          type: string
+          access: write
+      instance:
+        ietf-system:
+          system:
+            hostname: "lab-rtr-a"
+  users:
+    - name: alice
+      passwordFile: /run/secrets/netconf-alice
+      profile: router-a
+      access: read-write
