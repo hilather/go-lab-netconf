@@ -6,8 +6,24 @@
 
 - SSH server, subsystem name exactly `netconf`. Other subsystems refused.
 - Framing: NETCONF 1.0 `]]>]]>` and 1.1 chunked (`\n#N\n` … `\n##\n`). Both required.
-- Session starts with `<hello>` exchanging capabilities.
-- Advertised in 1.0: `base:1.0`, `base:1.1`, `candidate:1.0`, `startup:1.0`, `validate:1.0`, `notification:1.0` (RFC 5277 stream `NETCONF` config-change only).
+  `internal/ncframing` encodes and decodes those frames. Hello is
+  always 1.0-framed; 1.1 chunking starts after both peers advertise
+  `base:1.1`.
+- Session starts with `<hello>` exchanging capabilities. `internal/ncrpc`
+  encodes and decodes hello, `<rpc>`, and `<rpc-reply>`. `message-id`
+  is a string and is preserved on encode and decode.
+- Advertised capability URIs:
+
+  | Capability | URI |
+  |---|---|
+  | base:1.0 | `urn:ietf:params:netconf:base:1.0` |
+  | base:1.1 | `urn:ietf:params:netconf:base:1.1` |
+  | candidate:1.0 | `urn:ietf:params:netconf:capability:candidate:1.0` |
+  | startup:1.0 | `urn:ietf:params:netconf:capability:startup:1.0` |
+  | validate:1.0 | `urn:ietf:params:netconf:capability:validate:1.0` |
+  | notification:1.0 | `urn:ietf:params:netconf:capability:notification:1.0` |
+
+  Notification is RFC 5277 stream `NETCONF` config-change only.
 - **Not** advertised: `writable-running`, `confirmed-commit`, `xpath`, `url`, `with-defaults` beyond trim, NMDA `origin`.
 
 ### Operations

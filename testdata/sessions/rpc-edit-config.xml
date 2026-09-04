@@ -1,0 +1,1 @@
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="103"><edit-config><target><candidate/></target><default-operation>merge</default-operation><config><system xmlns="urn:ietf:params:xml:ns:yang:ietf-system"><hostname>router-a</hostname></system></config></edit-config></rpc>

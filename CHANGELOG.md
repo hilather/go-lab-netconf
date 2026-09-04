@@ -19,3 +19,10 @@
   omitted `allowClientCidrs` to loopback, treat `[]` as deny-all,
   and print a SHA-256 revision over secret paths (never bytes).
   `make test-config-compat` is a required CI job.
+- NETCONF 1.0 EOM (`]]>]]>`) and 1.1 chunked (`\n#N\n` … `\n##\n`)
+  framing in `internal/ncframing`, plus hello/RPC XML codec in
+  `internal/ncrpc`. Advertised capabilities are base:1.0, base:1.1,
+  candidate, startup, validate, and notification; writable-running
+  and xpath are not emitted. `message-id` is preserved. Session
+  goldens live under `testdata/sessions`. `make test-fuzz-smoke` is
+  a required CI job.
