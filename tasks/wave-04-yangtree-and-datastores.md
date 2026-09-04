@@ -1,6 +1,6 @@
 # TREE-001 — Path tree and datastores
 
-Status: not-started
+Status: complete
 Depends: CFG-001
 Owns: internal/yangtree, internal/datastore
 

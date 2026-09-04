@@ -19,5 +19,6 @@ Config matrix under testdata/config (`valid/defaults.yaml`,
 Fuzz ncframing. Container script on :1830 / :8303.
 Locks: KnownFields unknown fields, reserved-key reject,
 `tls.enabled: true` reject, `writableRunning: true` reject,
-framing 1.0 and 1.1, candidate isolation, commit visible on
-RESTCONF GET, discard restores, unknown user 401.
+framing 1.0 and 1.1, commit moves candidate to running, discard
+restores candidate from running, candidate isolation (two users /
+two profiles), commit visible on RESTCONF GET, unknown user 401.

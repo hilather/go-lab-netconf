@@ -19,3 +19,9 @@
   omitted `allowClientCidrs` to loopback, treat `[]` as deny-all,
   and print a SHA-256 revision over secret paths (never bytes).
   `make test-config-compat` is a required CI job.
+- Compact path tree (`internal/yangtree`) and per-profile-instance
+  running/candidate/startup stores (`internal/datastore`). NETCONF
+  `edit-config` targets candidate; `Commit` publishes to running
+  and increments `storeGeneration`. RESTCONF writes running through
+  `WriteRunningIfCandidateClean` when candidate is clean and
+  unlocked, else `candidate_dirty`. Locks are per profile-instance.

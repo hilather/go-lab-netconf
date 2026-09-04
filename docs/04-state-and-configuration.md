@@ -103,7 +103,8 @@ the 1.0 schema keys `listeners.callHome` and `listeners.netconfTls`
 
 SHA-256 of canonical YAML. Secret **paths** included, secret **bytes**
 never. Candidate dirty state does not change revision.
-`storeGeneration` increments on commit.
+`storeGeneration` increments on commit and on copy-config that
+mutates running or startup. Candidate-only edits do not increment it.
 
 ## Live vs reset-only vs data-plane
 
