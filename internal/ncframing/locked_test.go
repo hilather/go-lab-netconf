@@ -9,23 +9,25 @@ import (
 )
 
 func TestFraming10EOM(t *testing.T) {
+	const eom = "]]>]]>"
 	msg := []byte(`<hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0"/>`)
 	var buf bytes.Buffer
 	if err := Write1_0(&buf, msg); err != nil {
 		t.Fatal(err)
 	}
 	got := buf.Bytes()
-	if !bytes.HasSuffix(got, []byte(EOM10)) {
-		t.Fatalf("1.0 frame missing %q: %q", EOM10, got)
+	if !bytes.HasSuffix(got, []byte(eom)) {
+		t.Fatalf("1.0 frame missing %q: %q", eom, got)
 	}
-	if bytes.Contains(got[:len(got)-len(EOM10)], []byte(EOM10)) {
+	if bytes.Contains(got[:len(got)-len(eom)], []byte(eom)) {
 		t.Fatalf("1.0 payload contains EOM: %q", got)
 	}
-	if !bytes.Equal(got[:len(got)-len(EOM10)], msg) {
-		t.Fatalf("1.0 payload = %q, want %q", got[:len(got)-len(EOM10)], msg)
+	if !bytes.Equal(got[:len(got)-len(eom)], msg) {
+		t.Fatalf("1.0 payload = %q, want %q", got[:len(got)-len(eom)], msg)
 	}
-	if !bytes.Equal(got, append(append([]byte{}, msg...), []byte(EOM10)...)) {
-		t.Fatalf("1.0 frame = %q", got)
+	want := append(append([]byte{}, msg...), []byte(eom)...)
+	if !bytes.Equal(got, want) {
+		t.Fatalf("1.0 frame = %q, want %q", got, want)
 	}
 
 	r := NewReader(&byteReader{b: append([]byte{}, got...)}, Version10)
