@@ -157,20 +157,70 @@ func TestValidateNil(t *testing.T) {
 }
 
 func TestRevisionOmitsSecretBytes(t *testing.T) {
-	st, err := LoadFile(testdata(t, "valid", "full.yaml"))
+	const payload = "labnetconf-secret-payload-do-not-hash-this-value"
+	if len(payload) < MinTokenBytes {
+		t.Fatalf("payload is %d bytes, want >= %d", len(payload), MinTokenBytes)
+	}
+	dir := t.TempDir()
+	secretName := "admin.token"
+	if err := os.WriteFile(filepath.Join(dir, secretName), []byte(payload), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	yaml := `apiVersion: labnetconf.dev/v1alpha1
+kind: LabNETCONF
+metadata:
+  name: secret-bytes
+spec:
+  listeners:
+    netconf:
+      hostKeyFile: /run/secrets/labnetconf-hostkey
+  auth:
+    tokens:
+      - id: admin
+        role: administrator
+        secretFile: ` + secretName + `
+  profiles:
+    - name: router-a
+      schema:
+        - path: "ietf-system:system/hostname"
+          type: string
+          access: write
+      instance:
+        ietf-system:
+          system:
+            hostname: "lab-rtr-a"
+  users:
+    - name: alice
+      passwordFile: /run/secrets/netconf-alice
+      profile: router-a
+      access: read-write
+`
+	cfg := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(cfg, []byte(yaml), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	st, err := LoadFile(cfg)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if st.Spec.Auth.Tokens[0].SecretFile != secretName {
+		t.Fatalf("secretFile = %q", st.Spec.Auth.Tokens[0].SecretFile)
 	}
 	y, err := CanonicalYAML(st)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(y), "labnetconf-token") && strings.Contains(string(y), "secretFile") {
-		// path is included
-	} else {
-		t.Fatalf("canonical YAML missing secret path: %s", y)
+	if !strings.Contains(string(y), secretName) {
+		t.Fatalf("canonical YAML missing secret path %q: %s", secretName, y)
 	}
-	if strings.Contains(string(y), "tooshort") {
+	if strings.Contains(string(y), payload) {
 		t.Fatal("canonical YAML leaked secret bytes")
+	}
+	rev, err := Revision(st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(rev), payload) {
+		t.Fatal("revision leaked secret bytes")
 	}
 }

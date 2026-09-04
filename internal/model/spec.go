@@ -18,7 +18,7 @@ const (
 	NetconfVersion11 = "1.1"
 )
 
-// CompactSchemaTypes is the closed 1.0 path-type set. There is no YANG compiler.
+// CompactSchemaTypes is the closed compact path-type set.
 var CompactSchemaTypes = []string{
 	"string", "boolean", "int32", "int64", "uint32", "uint64",
 	"decimal64", "identityref", "enumeration", "leaf-list", "list",
@@ -46,7 +46,6 @@ func KnownSchemaType(t string) bool {
 }
 
 // ListenersSpec configures NETCONF, RESTCONF, and management listeners.
-// callHome and netconfTls exist so enabled:true can be rejected in 1.0.
 type ListenersSpec struct {
 	Netconf    NetconfListenerSpec  `json:"netconf"`
 	Restconf   RestconfListenerSpec `json:"restconf"`
@@ -69,17 +68,17 @@ type RestconfListenerSpec struct {
 	TLS     TLSSpec `json:"tls"`
 }
 
-// TLSSpec is listeners.restconf.tls. enabled true is a 1.0 validate error.
+// TLSSpec is listeners.restconf.tls; 1.0 rejects enabled.
 type TLSSpec struct {
 	Enabled bool `json:"enabled"`
 }
 
-// CallHomeSpec is listeners.callHome. enabled true is a 1.0 validate error.
+// CallHomeSpec is listeners.callHome; 1.0 rejects enabled.
 type CallHomeSpec struct {
 	Enabled bool `json:"enabled"`
 }
 
-// NetconfTLSSpec is listeners.netconfTls. enabled true is a 1.0 validate error.
+// NetconfTLSSpec is listeners.netconfTls; 1.0 rejects enabled.
 type NetconfTLSSpec struct {
 	Enabled bool `json:"enabled"`
 }
@@ -123,7 +122,7 @@ type NotificationsSpec struct {
 	Enabled bool `json:"enabled"`
 }
 
-// RestconfSpec is RESTCONF encoding posture. 1.0 is JSON only.
+// RestconfSpec is RESTCONF encoding posture.
 type RestconfSpec struct {
 	JSON bool `json:"json"`
 	XML  bool `json:"xml"`
@@ -157,8 +156,7 @@ type ProfileSpec struct {
 	Startup  map[string]any `json:"startup,omitempty"`
 }
 
-// ModuleSpec is a yang-library identifier. moduleFile/sourceFile are stored
-// for later get-schema; 1.0 does not compile them.
+// ModuleSpec is a yang-library identifier. moduleFile and sourceFile are file refs.
 type ModuleSpec struct {
 	Name       string `json:"name"`
 	Revision   string `json:"revision,omitempty"`

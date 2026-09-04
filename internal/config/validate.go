@@ -37,7 +37,7 @@ func validate(st *model.State, baseDir string) error {
 		return err
 	}
 	if len(vs) > 0 {
-		return domainerr.ValidationFailed("Candidate state is invalid.", vs...)
+		return domainerr.ValidationFailed("bootstrap document is invalid", vs...)
 	}
 	return nil
 }

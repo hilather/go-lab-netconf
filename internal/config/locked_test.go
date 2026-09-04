@@ -59,7 +59,10 @@ func TestCallHomeEnabledReject(t *testing.T) {
 
 func TestWritableRunningTrueReject(t *testing.T) {
 	_, err := LoadFile(testdata(t, "invalid", "writable-running-true.yaml"))
-	_ = requireDomainCode(t, err, violationInvalidValue)
+	de := requireDomainCode(t, err, violationInvalidValue)
+	if de.Code != domainerr.CodeValidationFailed {
+		t.Fatalf("top-level code=%s, want validation_failed", de.Code)
+	}
 }
 
 func TestAdmissionOmittedVsEmpty(t *testing.T) {
