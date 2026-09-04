@@ -1,0 +1,17 @@
+# ADRs
+
+- [0001-use-go.md](0001-use-go.md)
+- [0002-first-party-netconf.md](0002-first-party-netconf.md)
+- [0003-ephemeral-state-and-gitops.md](0003-ephemeral-state-and-gitops.md)
+- [0004-shared-capability-registry.md](0004-shared-capability-registry.md)
+- [0005-lab-static-bearer.md](0005-lab-static-bearer.md)
+- [0006-pin-mcp-protocol-versions.md](0006-pin-mcp-protocol-versions.md)
+- [0007-never-call-home.md](0007-never-call-home.md)
+- [0008-no-yang-compiler.md](0008-no-yang-compiler.md)
+- [0009-per-user-models.md](0009-per-user-models.md)
+- [0010-container-830-net-bind-service.md](0010-container-830-net-bind-service.md)
+- [0011-candidate-not-writable-running.md](0011-candidate-not-writable-running.md)
+- [0012-bounded-capabilities.md](0012-bounded-capabilities.md)
+- [0013-notification-log-ephemeral.md](0013-notification-log-ephemeral.md)
+- [0013-restconf-dedicated-listener.md](0013-restconf-dedicated-listener.md)
+- [0014-host-residual-10830.md](0014-host-residual-10830.md)
