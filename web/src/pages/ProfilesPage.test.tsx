@@ -42,6 +42,8 @@ describe("ProfilesPage", () => {
     await waitFor(() => {
       expect(posts).toHaveLength(1);
     });
-    expect(posts[0]).toContain("via-ui");
+    expect(JSON.parse(posts[0] ?? "")).toEqual({
+      "ietf-system": { system: { hostname: "via-ui" } },
+    });
   });
 });

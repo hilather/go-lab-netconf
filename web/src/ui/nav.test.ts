@@ -26,12 +26,12 @@ describe("operator nav", () => {
     expect(canSubmitReset("RESET", true, false)).toBe(false);
   });
 
-  it("builds a leaf overlay from a compact path", () => {
-    expect(overlayFromPath("ietf-system:system/hostname", '"lab-rtr-a"')).toEqual({
-      "ietf-system:system": { hostname: "lab-rtr-a" },
+  it("nests module: then / segments like yangtree.ParsePath", () => {
+    expect(overlayFromPath("ietf-system:system/hostname", "via-ui")).toEqual({
+      "ietf-system": { system: { hostname: "via-ui" } },
     });
-    expect(overlayFromPath("ietf-system:system/hostname", "lab-rtr-a")).toEqual({
-      "ietf-system:system": { hostname: "lab-rtr-a" },
+    expect(overlayFromPath("ietf-system:system/hostname", '"lab-rtr-a"')).toEqual({
+      "ietf-system": { system: { hostname: "lab-rtr-a" } },
     });
   });
 });
