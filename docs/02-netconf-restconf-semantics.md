@@ -35,7 +35,7 @@
 | edit-config | target `candidate` only (default-operation merge) |
 | copy-config | running↔candidate↔startup |
 | delete-config | `startup` only |
-| lock / unlock | single global lock per datastore |
+| lock / unlock | one lock per datastore per profile-instance |
 | commit | candidate → running; emit config-change; clear dirty |
 | discard-changes | candidate ← running |
 | validate | path + declared types only (no YANG when-must) |

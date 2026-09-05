@@ -26,3 +26,9 @@
   and xpath are not emitted. `message-id` is preserved. Session
   goldens live under `testdata/sessions`. `make test-fuzz-smoke` is
   a required CI job.
+- Compact path tree (`internal/yangtree`) and per-profile-instance
+  running/candidate/startup stores (`internal/datastore`). NETCONF
+  `edit-config` targets candidate; `Commit` publishes to running
+  and increments `storeGeneration`. RESTCONF writes running through
+  `WriteRunningIfCandidateClean` when candidate is clean and
+  unlocked, else `candidate_dirty`. Locks are per profile-instance.

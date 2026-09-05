@@ -3,7 +3,9 @@
 - Status: Accepted
 - Date: 2026-09-04
 
-edit-config and RESTCONF writes target candidate. Commit publishes
-to running. `:writable-running` is not advertised. RESTCONF
-`autoCommit` default true is a lab shortcut that commit()s after
-each HTTP write.
+NETCONF `edit-config` targets candidate. Commit publishes to
+running. `:writable-running` is not advertised.
+
+RESTCONF writes running when candidate is clean and unlocked;
+otherwise 409 `candidate_dirty`. Writing candidate and then
+auto-committing is not used.

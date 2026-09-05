@@ -47,16 +47,25 @@ dynamic getter (LabSNMP analog). Dynamic leaves are not writable.
 
 | Store | Role |
 |---|---|
-| running | What get / RESTCONF GET see after commit |
-| candidate | What edit-config / RESTCONF write target |
+| running | What get / RESTCONF GET see after commit. RESTCONF writes running when candidate is clean and unlocked. |
+| candidate | What NETCONF edit-config targets. Not the RESTCONF write target. |
 | startup | copy-config source/dest; wiped on reset |
 
-Lock: one lock per datastore per profile-instance. lock-denied if
-held by another session. kill-session drops that session's locks.
+RESTCONF PATCH/PUT/POST/DELETE call `WriteRunningIfCandidateClean`:
+under the profile-instance lock, if candidate is clean and unlocked,
+apply the edit to running and copy-forward onto candidate. If
+candidate is dirty or locked, the write fails with `candidate_dirty`
+(HTTP 409). NETCONF `edit-config` remains `Edit` on candidate plus
+`Commit`. RESTCONF must not `Edit(candidate)` then `Commit`.
+
+Lock: one lock per datastore **per profile-instance** (not
+process-global). Two profile-instances may hold `candidate`
+independently. lock-denied if that instance's datastore is held by
+another session. kill-session drops that session's locks.
 
 Generation counter increments on commit and on copy-config that
 mutates running or startup. Candidate-only edits do not change
-bootstrap `runtimeRevision`.
+bootstrap `runtimeRevision` and do not increment `storeGeneration`.
 
 ## Commit / discard
 
