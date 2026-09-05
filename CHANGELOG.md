@@ -32,6 +32,11 @@
   and increments `storeGeneration`. RESTCONF writes running through
   `WriteRunningIfCandidateClean` when candidate is clean and
   unlocked, else `candidate_dirty`. Locks are per profile-instance.
+- RFC 5277 stream `NETCONF` config-change ring in `internal/notif`.
+  `Ring` implements Sink and Waiter (OnCommit on commit only). Wait
+  returns an existing or inserted record, or `wait_timeout` /
+  `store_wiped`. Reset and restart wipe the log. Ids are ULIDs
+  (`github.com/oklog/ulid/v2`).
 - SSH NETCONF data plane (`internal/netconfssh`, `internal/ncserver`)
   listens on TCP, authenticates `spec.users` via `passwordFile`
   and/or `authorizedKeysFile`, and accepts only subsystem `netconf`.
