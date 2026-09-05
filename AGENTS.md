@@ -51,5 +51,6 @@ yaml.v3, MCP SDK v1.7.0, ulid, golang.org/x/crypto/ssh (adapter only).
 KnownFields, reserved keys, tls.enabled reject, writableRunning
 true reject, Dial AST, forbidden modules, framing 1.0 and 1.1,
 commit moves candidate to running, discard restores candidate from
-running, candidate isolation (two users / two profiles), reset
+running, candidate isolation (two users / two profiles), commit
+visible on RESTCONF GET, unknown user 401 (RESTCONF), reset
 restores hostname.

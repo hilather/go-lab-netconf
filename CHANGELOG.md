@@ -25,3 +25,9 @@
   and increments `storeGeneration`. RESTCONF writes running through
   `WriteRunningIfCandidateClean` when candidate is clean and
   unlocked, else `candidate_dirty`. Locks are per profile-instance.
+- RFC 8040 JSON RESTCONF listener (`internal/restconf`) on a dedicated
+  HTTP port (default `:8303`), not the management mux. Basic auth
+  against `spec.users`; management bearer is rejected. Writes call
+  `WriteRunningIfCandidateClean` (409 `candidate_dirty` if candidate
+  is dirty or locked). Omitted admission CIDRs default to loopback;
+  an empty list is deny-all. JSON `application/yang-data+json` only.
