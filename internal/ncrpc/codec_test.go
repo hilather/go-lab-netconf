@@ -192,6 +192,14 @@ func TestReplyRoundTrip(t *testing.T) {
 	if msg.Reply == nil || !bytes.Equal(msg.Reply.Data, []byte(hostnameConfig)) {
 		t.Fatalf("data reply = %#v", msg.Reply)
 	}
+
+	empty, err := EncodeReply(Reply{MessageID: "104", Data: []byte{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(empty, []byte("<data>")) || bytes.Contains(empty, []byte("<ok/>")) {
+		t.Fatalf("empty data reply = %s", empty)
+	}
 }
 
 func TestEncodeRequiresMessageID(t *testing.T) {

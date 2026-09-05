@@ -75,7 +75,7 @@ func EncodeReply(r Reply) ([]byte, error) {
 		for _, e := range r.Errors {
 			encodeError(&inner, e)
 		}
-	case len(r.Data) > 0:
+	case r.Data != nil:
 		inner.WriteString("<data>")
 		inner.Write(r.Data)
 		inner.WriteString("</data>")

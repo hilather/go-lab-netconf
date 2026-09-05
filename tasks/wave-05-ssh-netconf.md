@@ -1,6 +1,6 @@
 # SSH-001 — SSH NETCONF server
 
-Status: not-started
+Status: complete
 Depends: WIRE-001, TREE-001
 Owns: internal/netconfssh, internal/ncserver
 

@@ -32,3 +32,10 @@
   and increments `storeGeneration`. RESTCONF writes running through
   `WriteRunningIfCandidateClean` when candidate is clean and
   unlocked, else `candidate_dirty`. Locks are per profile-instance.
+- SSH NETCONF data plane (`internal/netconfssh`, `internal/ncserver`)
+  listens on TCP, authenticates `spec.users` via `passwordFile`
+  and/or `authorizedKeysFile`, and accepts only subsystem `netconf`.
+  `internal/nctest` is the in-repo hello + get-config client.
+  Admission omitted CIDRs default to loopback; an empty list is
+  deny-all. `create-subscription` succeeds and does not write
+  notification messages on the session.
