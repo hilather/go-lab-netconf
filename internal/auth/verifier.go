@@ -90,6 +90,11 @@ func FromSpec(spec model.AuthSpec) (*Verifier, error) {
 	return &Verifier{mode: mode, tokens: tokens}, nil
 }
 
+// Empty is a bearer verifier with no tokens. Authenticate always 401s.
+func Empty() *Verifier {
+	return &Verifier{mode: model.MgmtAuthBearer}
+}
+
 // Static builds a bearer verifier from an in-memory secret (contract tests).
 func Static(secret, id, role string) *Verifier {
 	if id == "" {

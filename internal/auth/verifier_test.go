@@ -112,3 +112,14 @@ func TestMissingAuthUnauthorized(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 }
+
+func TestEmptyFailClosed(t *testing.T) {
+	v := Empty()
+	if err := v.RequireListen(); err == nil {
+		t.Fatal("empty must refuse listen")
+	}
+	_, err := v.Authenticate(Request{Authorization: "Bearer " + testSecret})
+	if err == nil {
+		t.Fatal("empty must 401")
+	}
+}

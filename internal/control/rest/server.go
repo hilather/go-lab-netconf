@@ -60,6 +60,7 @@ type Server struct {
 	handler http.Handler
 	maxBody int64
 	timeout time.Duration
+	origins atomic.Pointer[[]string]
 
 	mu     sync.Mutex
 	http   *http.Server
@@ -100,6 +101,7 @@ func New(cfg Config) (*Server, error) {
 		timeout: timeout,
 		addr:    cfg.Addr,
 	}
+	s.storeOrigins(cfg.AllowedOrigins)
 	if appSvc, ok := s.svc.(*app.App); ok {
 		appSvc.OnReset(s.reloadAuth)
 		appSvc.OnApply(s.reloadAuth)
@@ -230,7 +232,7 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	if err := auth.CheckOrigin(r.Header.Get("Origin"), s.cfg.AllowedOrigins); err != nil {
+	if err := auth.CheckOrigin(r.Header.Get("Origin"), s.allowedOrigins()); err != nil {
 		s.writeProblem(w, r, instance, err)
 		return
 	}
@@ -277,18 +279,17 @@ func (s *Server) reloadAuth() {
 	}
 	appSvc, ok := s.svc.(*app.App)
 	if !ok {
+		s.failClosedAuth()
 		return
 	}
 	snap := appSvc.Active()
 	if snap == nil || snap.Canonical == nil {
+		s.failClosedAuth()
 		return
 	}
-	s.cfg.AllowedOrigins = append([]string(nil), snap.Canonical.Spec.Management.AllowedOrigins...)
 	next, err := auth.FromSpec(snap.Canonical.Spec.Auth)
-	if err != nil {
-		return
-	}
-	if err := next.RequireListen(); err != nil {
+	if err != nil || next.RequireListen() != nil {
+		s.failClosedAuth()
 		return
 	}
 	changed := !s.cfg.Auth.Equivalent(next)
@@ -296,6 +297,29 @@ func (s *Server) reloadAuth() {
 	if changed && s.cfg.Sessions != nil {
 		s.cfg.Sessions.Clear()
 	}
+	s.storeOrigins(snap.Canonical.Spec.Management.AllowedOrigins)
+}
+
+func (s *Server) failClosedAuth() {
+	if s.cfg.Auth != nil {
+		s.cfg.Auth.Replace(auth.Empty())
+	}
+	if s.cfg.Sessions != nil {
+		s.cfg.Sessions.Clear()
+	}
+}
+
+func (s *Server) storeOrigins(next []string) {
+	cp := append([]string(nil), next...)
+	s.origins.Store(&cp)
+}
+
+func (s *Server) allowedOrigins() []string {
+	p := s.origins.Load()
+	if p == nil {
+		return nil
+	}
+	return append([]string(nil), (*p)...)
 }
 
 func isHealthCap(cap capabilities.Capability) bool {

@@ -1,9 +1,13 @@
 package rest
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/hilather/go-lab-netconf/internal/auth"
@@ -153,7 +157,7 @@ func TestReaderForbiddenOnAdmin(t *testing.T) {
 
 func TestOriginExactMatch(t *testing.T) {
 	s, _ := newTestServer(t)
-	s.cfg.AllowedOrigins = []string{"https://lab.example"}
+	s.storeOrigins([]string{"https://lab.example"})
 	req := httptest.NewRequest(http.MethodGet, "/v1/state", nil)
 	req.Header.Set("Authorization", "Bearer "+testToken)
 	req.Header.Set("Origin", "https://evil.example")
@@ -245,4 +249,143 @@ func TestUnauthorizedMapping(t *testing.T) {
 	if p.Status != http.StatusUnauthorized || p.Code != domainerr.CodeUnauthorized {
 		t.Fatalf("%+v", p)
 	}
+}
+
+func TestResetReplacesVerifierAndDropsSessions(t *testing.T) {
+	const nextToken = "abcdef0123456789abcdef0123456789"
+	svc, bootPath := bootAuthedApp(t, testToken)
+	s, _ := newServerFor(t, svc)
+	p := auth.Principal{
+		ID:     "admin",
+		Class:  auth.ClassToken,
+		Role:   model.RoleAdministrator,
+		Scopes: auth.DefaultScopes(model.RoleAdministrator),
+	}
+	cookie, _, _, err := s.cfg.Sessions.Create(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dir := filepath.Dir(bootPath)
+	nextPath := filepath.Join(dir, "next.token")
+	if err := os.WriteFile(nextPath, []byte(nextToken+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	src, err := os.ReadFile(filepath.Join(repoRoot(t), "testdata", "config", "valid", "defaults.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(bootPath, []byte(injectAuthYAML(string(src), nextPath, nil)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	reset := doJSON(t, s, http.MethodPost, "/v1/state:reset", `{"reason":"rotate"}`)
+	if reset.StatusCode != http.StatusOK {
+		t.Fatalf("reset %d %s", reset.StatusCode, readBody(t, reset))
+	}
+	_ = reset.Body.Close()
+
+	old := httptest.NewRequest(http.MethodGet, "/v1/state", nil)
+	old.Header.Set("Authorization", "Bearer "+testToken)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, old)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("old bearer after reset %d %s", w.Code, w.Body.String())
+	}
+
+	sess := httptest.NewRequest(http.MethodGet, "/v1/state", nil)
+	sess.AddCookie(&http.Cookie{Name: auth.CookieName, Value: cookie})
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, sess)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("session after reset %d %s", w.Code, w.Body.String())
+	}
+
+	ok := httptest.NewRequest(http.MethodGet, "/v1/state", nil)
+	ok.Header.Set("Authorization", "Bearer "+nextToken)
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, ok)
+	if w.Code != http.StatusOK {
+		t.Fatalf("new bearer %d %s", w.Code, w.Body.String())
+	}
+
+	live := httptest.NewRequest(http.MethodGet, "/v1/health/live", nil)
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, live)
+	if w.Code != http.StatusOK {
+		t.Fatalf("health after rotate %d", w.Code)
+	}
+}
+
+func TestResetMissingTokenFailClosedKeepsOrigins(t *testing.T) {
+	svc, bootPath := bootAuthedApp(t, testToken)
+	s, _ := newServerFor(t, svc)
+	s.storeOrigins([]string{"https://lab.example"})
+
+	src, err := os.ReadFile(filepath.Join(repoRoot(t), "testdata", "config", "valid", "defaults.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rewritten := injectAuthYAML(string(src), "/no/such/labnetconf-token", []string{"https://should-not-apply.example"})
+	if err := os.WriteFile(bootPath, []byte(rewritten), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	reset := doJSON(t, s, http.MethodPost, "/v1/state:reset", `{"reason":"broken-secret"}`)
+	if reset.StatusCode != http.StatusOK {
+		t.Fatalf("reset %d %s", reset.StatusCode, readBody(t, reset))
+	}
+	_ = reset.Body.Close()
+
+	old := httptest.NewRequest(http.MethodGet, "/v1/state", nil)
+	old.Header.Set("Authorization", "Bearer "+testToken)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, old)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("old bearer must die %d %s", w.Code, w.Body.String())
+	}
+
+	kept := httptest.NewRequest(http.MethodGet, "/v1/health/live", nil)
+	kept.Header.Set("Origin", "https://lab.example")
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, kept)
+	if w.Code != http.StatusOK {
+		t.Fatalf("old origin must stay %d %s", w.Code, w.Body.String())
+	}
+
+	fresh := httptest.NewRequest(http.MethodGet, "/v1/health/live", nil)
+	fresh.Header.Set("Origin", "https://should-not-apply.example")
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, fresh)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("new origin must not apply %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestOriginReloadRace(t *testing.T) {
+	svc, _ := bootAuthedApp(t, testToken)
+	s, _ := newServerFor(t, svc)
+	s.storeOrigins([]string{"https://lab.example"})
+
+	var wg sync.WaitGroup
+	for i := 0; i < 32; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			req := httptest.NewRequest(http.MethodGet, "/v1/state", nil)
+			req.Header.Set("Authorization", "Bearer "+testToken)
+			req.Header.Set("Origin", "https://lab.example")
+			w := httptest.NewRecorder()
+			s.Handler().ServeHTTP(w, req)
+			_ = w.Result().Body.Close()
+		}()
+	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := svc.Reset(context.Background()); err != nil {
+			t.Errorf("reset: %v", err)
+		}
+	}()
+	wg.Wait()
 }

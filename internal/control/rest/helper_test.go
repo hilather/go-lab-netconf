@@ -38,7 +38,8 @@ func repoRoot(t *testing.T) string {
 
 func bootTestApp(t *testing.T) *app.App {
 	t.Helper()
-	return bootNamedApp(t, "defaults.yaml")
+	svc, _ := bootAuthedApp(t, testToken)
+	return svc
 }
 
 func bootNamedApp(t *testing.T, name string) *app.App {
@@ -56,6 +57,53 @@ func bootNamedApp(t *testing.T, name string) *app.App {
 		t.Fatal(err)
 	}
 	return svc
+}
+
+func bootAuthedApp(t *testing.T, token string) (*app.App, string) {
+	t.Helper()
+	dir := t.TempDir()
+	tokenPath := filepath.Join(dir, "admin.token")
+	if err := os.WriteFile(tokenPath, []byte(token+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	src, err := os.ReadFile(filepath.Join(repoRoot(t), "testdata", "config", "valid", "defaults.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := injectAuthYAML(string(src), tokenPath, nil)
+	path := filepath.Join(dir, "labnetconf.yaml")
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	svc, err := app.Boot(context.Background(), app.Options{BootstrapPath: path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return svc, path
+}
+
+func injectAuthYAML(src, secretFile string, allowedOrigins []string) string {
+	var b strings.Builder
+	b.WriteString("  auth:\n    mode: bearer\n    tokens:\n")
+	if secretFile != "" {
+		b.WriteString("      - id: admin\n        role: administrator\n        secretFile: ")
+		b.WriteString(secretFile)
+		b.WriteByte('\n')
+	}
+	if len(allowedOrigins) > 0 {
+		b.WriteString("  management:\n    allowedOrigins:\n")
+		for _, o := range allowedOrigins {
+			b.WriteString("      - ")
+			b.WriteString(o)
+			b.WriteByte('\n')
+		}
+	}
+	const needle = "spec:\n"
+	i := strings.Index(src, needle)
+	if i < 0 {
+		return src + "\n" + b.String()
+	}
+	return src[:i+len(needle)] + b.String() + src[i+len(needle):]
 }
 
 func newTestServer(t *testing.T) (*Server, *app.App) {
