@@ -19,12 +19,26 @@
   omitted `allowClientCidrs` to loopback, treat `[]` as deny-all,
   and print a SHA-256 revision over secret paths (never bytes).
   `make test-config-compat` is a required CI job.
+- NETCONF 1.0 EOM (`]]>]]>`) and 1.1 chunked (`\n#N\n` … `\n##\n`)
+  framing in `internal/ncframing`, plus hello/RPC XML codec in
+  `internal/ncrpc`. Advertised capabilities are base:1.0, base:1.1,
+  candidate, startup, validate, and notification; writable-running
+  and xpath are not emitted. `message-id` is preserved. Session
+  goldens live under `testdata/sessions`. `make test-fuzz-smoke` is
+  a required CI job.
 - Compact path tree (`internal/yangtree`) and per-profile-instance
   running/candidate/startup stores (`internal/datastore`). NETCONF
   `edit-config` targets candidate; `Commit` publishes to running
   and increments `storeGeneration`. RESTCONF writes running through
   `WriteRunningIfCandidateClean` when candidate is clean and
   unlocked, else `candidate_dirty`. Locks are per profile-instance.
+- SSH NETCONF data plane (`internal/netconfssh`, `internal/ncserver`)
+  listens on TCP, authenticates `spec.users` via `passwordFile`
+  and/or `authorizedKeysFile`, and accepts only subsystem `netconf`.
+  `internal/nctest` is the in-repo hello + get-config client.
+  Admission omitted CIDRs default to loopback; an empty list is
+  deny-all. `create-subscription` succeeds and does not write
+  notification messages on the session.
 - Snapshot compiler (`internal/compiler`, `internal/snapshot`) and
   plan/apply/reset (`internal/app`). Closed apply ops from docs/04
   require `expectedRevision` and `Idempotency-Key`. Reset rereads

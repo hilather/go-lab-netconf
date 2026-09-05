@@ -24,7 +24,7 @@ help:
 		'  verify-generated    fail if generate would change those files' \
 		'  test                go test ./...' \
 		'  test-race           go test -race ./...' \
-		'  test-fuzz-smoke     ncframing fuzz corpora (WIRE-001)' \
+		'  test-fuzz-smoke     buildinfo + ncframing fuzz corpora' \
 		'  test-docs           required documents, metadata, links, and required phrases' \
 		'  security-scan       govulncheck' \
 		'  test-parity         REST/MCP capability parity goldens (MCP-001)' \
@@ -63,8 +63,9 @@ test-race:
 	$(GO) test -race ./...
 
 test-fuzz-smoke:
-	@echo 'test-fuzz-smoke: not implemented until WIRE-001' >&2
-	@exit 1
+	$(GO) test ./internal/buildinfo -fuzz=FuzzInfoString -fuzztime=5s -count=1
+	$(GO) test ./internal/ncframing -fuzz=FuzzRead10 -fuzztime=5s -count=1
+	$(GO) test ./internal/ncframing -fuzz=FuzzRead11 -fuzztime=5s -count=1
 
 test-docs:
 	$(GO) run ./scripts/checkdocs

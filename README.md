@@ -17,4 +17,6 @@ This is not a production NMS, not ConfD, and not netopeer2.
 | Control | `/v1` `/mcp` `/` · host **18830** |
 
 Status: fail-closed `labnetconf.dev/v1alpha1` YAML loads via
-`labnetconf validate`. Start at `START-HERE.md` and `AGENTS.md`.
+`labnetconf validate`. NETCONF 1.0/1.1 framing and hello/RPC XML
+codecs are in `internal/ncframing` and `internal/ncrpc`. Start at
+`START-HERE.md` and `AGENTS.md`.

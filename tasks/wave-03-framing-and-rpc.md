@@ -1,6 +1,6 @@
 # FRAME-001 — NETCONF framing and RPC codec
 
-Status: not-started
+Status: complete
 Depends: CFG-001
 Owns: internal/ncframing, internal/ncrpc, testdata/sessions
 
