@@ -73,6 +73,30 @@ func TestContractReadsAndDatastore(t *testing.T) {
 	}
 }
 
+func TestMutatingToolRecordsAuditActor(t *testing.T) {
+	s, _ := newTestServer(t)
+	ts := startHTTP(t, s)
+	cs := connectClient(t, ts)
+	_ = structuredMap(t, callTool(t, cs, "netconf_datastore_set", map[string]any{
+		"profile": "router-a", "store": "candidate", "overlay": hostnameOverlay("audit-mcp"),
+	}))
+	got := structuredMap(t, callTool(t, cs, "netconf_audit_query", map[string]any{}))
+	events, _ := got["events"].([]any)
+	if len(events) == 0 {
+		t.Fatal("expected audit event")
+	}
+	ev, _ := events[0].(map[string]any)
+	if ev["actorId"] != "admin" {
+		t.Fatalf("actorId %v", ev["actorId"])
+	}
+	if ev["transport"] != "mcp" {
+		t.Fatalf("transport %v", ev["transport"])
+	}
+	if ev["capability"] != "datastore.set" {
+		t.Fatalf("capability %v", ev["capability"])
+	}
+}
+
 func TestContractResourceState(t *testing.T) {
 	s, _ := newTestServer(t)
 	ts := startHTTP(t, s)

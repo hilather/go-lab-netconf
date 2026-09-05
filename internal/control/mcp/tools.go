@@ -306,6 +306,8 @@ func addTool[In any](s *Server, name string, h func(context.Context, app.Actor, 
 		if err := s.authorizeTool(actor, name); err != nil {
 			return toolErrorResult(err), nil, nil
 		}
+		// recordAudit reads app.ActorFrom, not the adapter-private key.
+		ctx = app.WithActor(ctx, actor)
 		out, err := h(ctx, actor, in)
 		if err != nil {
 			return toolErrorResult(err), nil, nil

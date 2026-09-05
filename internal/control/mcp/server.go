@@ -210,7 +210,8 @@ func requestID(r *http.Request) string {
 }
 
 func withActor(ctx context.Context, a app.Actor) context.Context {
-	return context.WithValue(ctx, ctxActor, a)
+	ctx = context.WithValue(ctx, ctxActor, a)
+	return app.WithActor(ctx, a)
 }
 
 func (s *Server) actorFrom(ctx context.Context) app.Actor {

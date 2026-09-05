@@ -286,6 +286,8 @@ func fromAudit(list []app.AuditEvent) map[string]any {
 			"id":         e.ID,
 			"time":       rfc3339(e.Time),
 			"actorId":    e.ActorID,
+			"actorClass": e.ActorClass,
+			"transport":  e.Transport,
 			"capability": e.Capability,
 			"result":     e.Result,
 			"errorCode":  e.ErrorCode,

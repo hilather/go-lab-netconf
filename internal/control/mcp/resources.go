@@ -56,6 +56,7 @@ func (s *Server) readResource(ctx context.Context, req *sdk.ReadResourceRequest)
 	if err := s.authorizeResource(actor, uri); err != nil {
 		return nil, rpcError(err)
 	}
+	ctx = app.WithActor(ctx, actor)
 	body, mime, err := s.resourceBody(ctx, actor, uri)
 	if err != nil {
 		return nil, rpcError(err)
