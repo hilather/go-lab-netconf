@@ -1,0 +1,182 @@
+{
+  "id": "labnetconf.dev/metrics/v1alpha1",
+  "version": "v1alpha1",
+  "allowedLabels": [
+    "code",
+    "commit",
+    "component",
+    "decision",
+    "event",
+    "method",
+    "result",
+    "route",
+    "rpc",
+    "version"
+  ],
+  "forbiddenLabels": [
+    "actor",
+    "actor_id",
+    "address",
+    "authorization",
+    "body",
+    "client",
+    "client_ip",
+    "cookie",
+    "data",
+    "detail",
+    "err",
+    "error",
+    "error_text",
+    "from",
+    "host",
+    "idempotency",
+    "idempotency_key",
+    "message",
+    "password",
+    "peer",
+    "raw",
+    "remote_addr",
+    "set_cookie",
+    "source_ip",
+    "src",
+    "src_ip",
+    "subject",
+    "to"
+  ],
+  "metrics": [
+    {
+      "name": "labnetconf_apply_total",
+      "kind": "counter",
+      "help": "Plan/apply/reset commits.",
+      "labels": [
+        "result"
+      ]
+    },
+    {
+      "name": "labnetconf_build_info",
+      "kind": "gauge",
+      "help": "Build metadata. Always 1.",
+      "labels": [
+        "commit",
+        "version"
+      ]
+    },
+    {
+      "name": "labnetconf_http_requests_total",
+      "kind": "counter",
+      "help": "Management HTTP requests.",
+      "labels": [
+        "code",
+        "route"
+      ]
+    },
+    {
+      "name": "labnetconf_locks",
+      "kind": "gauge",
+      "help": "Held datastore locks across profile-instances.",
+      "labels": null
+    },
+    {
+      "name": "labnetconf_notifications",
+      "kind": "gauge",
+      "help": "In-process config-change notifications stored.",
+      "labels": null
+    },
+    {
+      "name": "labnetconf_restconf_requests_total",
+      "kind": "counter",
+      "help": "RESTCONF data-plane HTTP requests.",
+      "labels": [
+        "code",
+        "method"
+      ]
+    },
+    {
+      "name": "labnetconf_rpcs_total",
+      "kind": "counter",
+      "help": "NETCONF RPCs by name and decision.",
+      "labels": [
+        "decision",
+        "rpc"
+      ]
+    },
+    {
+      "name": "labnetconf_sessions",
+      "kind": "gauge",
+      "help": "Active NETCONF and RESTCONF sessions.",
+      "labels": null
+    }
+  ],
+  "events": [
+    {
+      "name": "http.request",
+      "fields": [
+        "timestamp",
+        "level",
+        "event",
+        "component",
+        "request_id",
+        "capability",
+        "result",
+        "error_code",
+        "duration_ms"
+      ]
+    },
+    {
+      "name": "netconf.rpc",
+      "fields": [
+        "timestamp",
+        "level",
+        "event",
+        "component",
+        "request_id",
+        "capability",
+        "result",
+        "error_code",
+        "duration_ms"
+      ]
+    },
+    {
+      "name": "restconf.request",
+      "fields": [
+        "timestamp",
+        "level",
+        "event",
+        "component",
+        "request_id",
+        "capability",
+        "result",
+        "error_code",
+        "duration_ms"
+      ]
+    },
+    {
+      "name": "state.apply",
+      "fields": [
+        "timestamp",
+        "level",
+        "event",
+        "component",
+        "request_id",
+        "capability",
+        "result",
+        "error_code",
+        "duration_ms"
+      ]
+    },
+    {
+      "name": "state.reset",
+      "fields": [
+        "timestamp",
+        "level",
+        "event",
+        "component",
+        "request_id",
+        "capability",
+        "result",
+        "error_code",
+        "duration_ms"
+      ]
+    }
+  ]
+}

@@ -79,6 +79,7 @@ func (s *session) run(ctx context.Context) error {
 			continue
 		}
 		reply := s.dispatch(ctx, *msg.RPC)
+		s.server.observeRPC(msg.RPC.Name, len(reply.Errors) == 0)
 		if err := s.writeReply(reply); err != nil {
 			return err
 		}

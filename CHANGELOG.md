@@ -53,3 +53,8 @@
   is not mounted on management. `make generate` / `verify-generated`
   write and check `api/capabilities/v1.json`, `api/openapi/v1.json`,
   and `api/errors/v1.json`.
+- slog JSON logging and hand-rolled OpenMetrics (`internal/observability`).
+  Frozen series from docs/09 scrape at `GET /v1/metrics`. Ready is
+  snapshot loaded plus enabled NETCONF/RESTCONF listeners bound plus
+  (management bound or off). `labnetconf healthcheck --url=` probes
+  `GET /v1/health/ready`. No Prometheus client.

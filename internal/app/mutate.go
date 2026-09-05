@@ -11,6 +11,7 @@ import (
 	"github.com/hilather/go-lab-netconf/internal/config"
 	"github.com/hilather/go-lab-netconf/internal/domainerr"
 	"github.com/hilather/go-lab-netconf/internal/model"
+	"github.com/hilather/go-lab-netconf/internal/observability"
 	"github.com/hilather/go-lab-netconf/internal/snapshot"
 )
 
@@ -42,6 +43,13 @@ func (s *App) Apply(ctx context.Context, ops []ApplyOp, expectedRev, idempotency
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	result := "error"
+	defer func() {
+		s.observeApply(result)
+		if s.logger != nil {
+			s.logger.Log(observability.Record{Event: observability.EventStateApply, Component: "app", Result: result})
+		}
+	}()
 	if idempotencyKey == "" {
 		return ApplyResult{}, domainerr.ValidationFailed("Idempotency-Key is required",
 			domainerr.FieldViolation{Path: "idempotencyKey", Code: "required", Message: "Idempotency-Key is required for apply"})
@@ -53,11 +61,15 @@ func (s *App) Apply(ctx context.Context, ops []ApplyOp, expectedRev, idempotency
 	if hit, err := s.idemp.lookup(idempotencyKey, fp); err != nil {
 		return ApplyResult{}, err
 	} else if hit != nil && hit.apply != nil {
+		result = "ok"
 		return *cloneApply(hit.apply), nil
 	}
 	cand, err := s.buildCandidate(ops, expectedRev, true)
 	if err != nil {
 		s.forgetIdempOnConflict(idempotencyKey, err)
+		if de, ok := domainerr.As(err); ok && de.Code == domainerr.CodeRevisionMismatch {
+			result = "conflict"
+		}
 		return ApplyResult{}, err
 	}
 	s.snaps.Swap(cand.next)
@@ -69,6 +81,7 @@ func (s *App) Apply(ctx context.Context, ops []ApplyOp, expectedRev, idempotency
 		RuntimeRevision: cand.next.Revision,
 	}
 	s.idemp.storeApply(idempotencyKey, fp, &res)
+	result = "ok"
 	return *cloneApply(&res), nil
 }
 

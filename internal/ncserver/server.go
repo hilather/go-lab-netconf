@@ -10,6 +10,7 @@ import (
 	"github.com/hilather/go-lab-netconf/internal/datastore"
 	"github.com/hilather/go-lab-netconf/internal/model"
 	"github.com/hilather/go-lab-netconf/internal/notif"
+	"github.com/hilather/go-lab-netconf/internal/observability"
 )
 
 // User binds an authenticated SSH/RESTCONF name to one profile-instance.
@@ -24,8 +25,9 @@ type User struct {
 // Config is the session engine. Sink is the same object passed to
 // datastore.New; it may be nil.
 type Config struct {
-	Users []User
-	Sink  notif.Sink
+	Users   []User
+	Sink    notif.Sink
+	Metrics *observability.Registry
 }
 
 // SessionInfo is one row of the live session table.
@@ -38,9 +40,10 @@ type SessionInfo struct {
 
 // Server owns the session table and dispatches RPCs into datastores.
 type Server struct {
-	users  map[string]User
-	sink   notif.Sink
-	nextID atomic.Uint64
+	users   map[string]User
+	sink    notif.Sink
+	metrics *observability.Registry
+	nextID  atomic.Uint64
 
 	mu       sync.Mutex
 	sessions map[string]*session
@@ -58,6 +61,7 @@ func New(cfg Config) *Server {
 	return &Server{
 		users:    users,
 		sink:     cfg.Sink,
+		metrics:  cfg.Metrics,
 		sessions: map[string]*session{},
 	}
 }
@@ -88,6 +92,7 @@ func (s *Server) Serve(ctx context.Context, username, remoteAddr string, rw io.R
 	}
 	s.mu.Lock()
 	s.sessions[id] = sess
+	s.publishSessionsLocked()
 	s.mu.Unlock()
 	defer func() {
 		cancel()
@@ -134,7 +139,16 @@ func (s *Server) Kill(id string) error {
 func (s *Server) drop(id string) {
 	s.mu.Lock()
 	delete(s.sessions, id)
+	s.publishSessionsLocked()
 	s.mu.Unlock()
+}
+
+func (s *Server) publishSessionsLocked() {
+	observability.SetSessions(s.metrics, len(s.sessions))
+}
+
+func (s *Server) observeRPC(name string, ok bool) {
+	observability.ObserveRPC(s.metrics, name, observability.RPCDecision(ok))
 }
 
 func (s *session) dropLocks() {

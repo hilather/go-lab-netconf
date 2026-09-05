@@ -6,12 +6,57 @@ import (
 	"net"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hilather/go-lab-netconf/internal/model"
 	"github.com/hilather/go-lab-netconf/internal/ncrpc"
 	"github.com/hilather/go-lab-netconf/internal/nctest"
 	"github.com/hilather/go-lab-netconf/internal/notif"
+	"github.com/hilather/go-lab-netconf/internal/observability"
 )
+
+func TestRPCAndSessionMetrics(t *testing.T) {
+	reg := observability.NewRegistry()
+	user := User{Name: "alice", Profile: "router-a"}
+	user.Namespaces = map[string]string{"ietf-system": ietfSystemNS}
+	user.Handle = mustHandle(t, user.Profile, "lab-rtr-a", nil)
+	srv := New(Config{Users: []User{user}, Sink: notif.Nop{}, Metrics: reg})
+	a, b := net.Pipe()
+	t.Cleanup(func() {
+		_ = a.Close()
+		_ = b.Close()
+	})
+	errc := make(chan error, 1)
+	go func() {
+		errc <- srv.Serve(context.Background(), user.Name, "127.0.0.1:1", a)
+	}()
+	c := nctest.New(b)
+	if _, err := c.Handshake(nil); err != nil {
+		t.Fatal(err)
+	}
+	rep := mustRPC(t, c, ncrpc.RPC{MessageID: "1", Name: ncrpc.OpGetConfig, Source: "running"})
+	if len(rep.Errors) != 0 {
+		t.Fatalf("%+v", rep.Errors)
+	}
+	v, ok := reg.Get(observability.MetricRPCsTotal, map[string]string{"rpc": "get-config", "decision": "ok"})
+	if !ok || v < 1 {
+		t.Fatalf("rpc counter %v %v", v, ok)
+	}
+	sessions, _ := reg.Get(observability.MetricSessions, nil)
+	if sessions != 1 {
+		t.Fatalf("sessions %v", sessions)
+	}
+	_ = b.Close()
+	select {
+	case <-errc:
+	case <-time.After(2 * time.Second):
+		t.Fatal("session did not exit")
+	}
+	sessions, _ = reg.Get(observability.MetricSessions, nil)
+	if sessions != 0 {
+		t.Fatalf("sessions after close %v", sessions)
+	}
+}
 
 func TestHelloGetConfigRunning(t *testing.T) {
 	c, _, _ := startSession(t, User{Name: "alice", Profile: "router-a"})

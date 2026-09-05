@@ -67,6 +67,20 @@ type Handle interface {
 	Generation() uint64
 }
 
+// LockCount is the number of held datastore locks on h.
+func LockCount(h Handle) int {
+	if h == nil {
+		return 0
+	}
+	n := 0
+	for _, store := range []Name{Running, Candidate, Startup} {
+		if _, held := h.Locked(store); held {
+			n++
+		}
+	}
+	return n
+}
+
 type handle struct {
 	mu        sync.Mutex
 	profile   string

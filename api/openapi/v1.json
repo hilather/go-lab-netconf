@@ -127,6 +127,16 @@
         ]
       }
     },
+    "/v1/metrics": {
+      "get": {
+        "description": "OpenMetrics scrape of the frozen docs/09 series. Not an MCP tool.",
+        "operationId": "metrics.get",
+        "summary": "Metrics",
+        "tags": [
+          "metrics.get"
+        ]
+      }
+    },
     "/v1/notifications": {
       "get": {
         "description": "In-process RFC 5277 config-change records.",

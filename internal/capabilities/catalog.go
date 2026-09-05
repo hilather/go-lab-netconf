@@ -1,8 +1,8 @@
 package capabilities
 
 // TableRowCount is the number of frozen REST↔MCP catalog rows
-// (REST_ONLY health plus every PARITY_REQUIRED row).
-const TableRowCount = 28
+// (REST_ONLY health and metrics plus every PARITY_REQUIRED row).
+const TableRowCount = 29
 
 func catalog() []Capability {
 	return []Capability{
@@ -234,6 +234,12 @@ func catalog() []Capability {
 			REST:           []RESTBinding{{Method: "GET", Path: "/v1/audit"}},
 			MCP:            &MCPBinding{Tools: []string{"netconf_audit_query"}},
 			ServiceMethods: []string{"QueryAudit"},
+		},
+		{
+			ID: MetricsGet, Title: "Metrics", Version: VersionTag,
+			Description:    "OpenMetrics scrape of the frozen docs/09 series. Not an MCP tool.",
+			RequiredScopes: []string{ScopeNetconfRead}, Idempotent: true, RESTOnly: true,
+			REST: []RESTBinding{{Method: "GET", Path: "/v1/metrics"}},
 		},
 	}
 }

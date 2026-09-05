@@ -29,7 +29,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return validateCmd(args[2:], stdout, stderr)
 	case "canonicalize":
 		return canonicalizeCmd(args[2:], stdout, stderr)
-	case "serve", "healthcheck", "mcp-stdio":
+	case "healthcheck":
+		return healthcheckCmd(args[2:], stdout, stderr)
+	case "serve", "mcp-stdio":
 		return notImplemented(args[1], stderr)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown command: %s\n", args[1])

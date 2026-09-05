@@ -9,6 +9,7 @@ import (
 	"github.com/hilather/go-lab-netconf/internal/datastore"
 	"github.com/hilather/go-lab-netconf/internal/domainerr"
 	"github.com/hilather/go-lab-netconf/internal/notif"
+	"github.com/hilather/go-lab-netconf/internal/observability"
 	"github.com/hilather/go-lab-netconf/internal/snapshot"
 )
 
@@ -21,6 +22,8 @@ type Options struct {
 	Sink           notif.Sink
 	Waiter         notif.Waiter
 	IdempotencyMax int
+	Metrics        *observability.Registry
+	Logger         *observability.Logger
 }
 
 // App is the process-local Service implementation.
@@ -31,6 +34,8 @@ type App struct {
 	sink          notif.Sink
 	waiter        notif.Waiter
 	idemp         *idempCache
+	metrics       *observability.Registry
+	logger        *observability.Logger
 
 	profileHandles map[string]datastore.Handle
 	userHandles    map[string]datastore.Handle
@@ -67,11 +72,17 @@ func New(opts Options) *App {
 		sink:           sink,
 		waiter:         waiter,
 		idemp:          newIdempCache(idempMax),
+		metrics:        opts.Metrics,
+		logger:         opts.Logger,
 		profileHandles: map[string]datastore.Handle{},
 		userHandles:    map[string]datastore.Handle{},
 	}
 	if snap := a.snaps.Load(); snap != nil {
 		a.rebuildHandles(snap)
+	}
+	if a.metrics != nil {
+		a.metrics.OnScrape(func() { a.observeGauges() })
+		a.observeGauges()
 	}
 	return a
 }
@@ -164,4 +175,44 @@ func asDomain(err error) error {
 		return err
 	}
 	return domainerr.ValidationFailed(err.Error())
+}
+
+func (s *App) observeApply(result string) {
+	if s == nil {
+		return
+	}
+	observability.ObserveApply(s.metrics, result)
+}
+
+func (s *App) observeGauges() {
+	if s == nil || s.metrics == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	seen := map[datastore.Handle]struct{}{}
+	locks := 0
+	for _, h := range s.profileHandles {
+		if _, ok := seen[h]; ok {
+			continue
+		}
+		seen[h] = struct{}{}
+		locks += datastore.LockCount(h)
+	}
+	for _, h := range s.userHandles {
+		if _, ok := seen[h]; ok {
+			continue
+		}
+		seen[h] = struct{}{}
+		locks += datastore.LockCount(h)
+	}
+	observability.SetLocks(s.metrics, locks)
+	n := 0
+	if s.waiter != nil {
+		list, err := s.waiter.List(context.Background(), notif.Query{})
+		if err == nil {
+			n = len(list)
+		}
+	}
+	observability.SetNotifications(s.metrics, n)
 }

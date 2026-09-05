@@ -108,6 +108,11 @@ func (s *Server) Addr() net.Addr {
 	return s.ln.Addr()
 }
 
+// Bound reports whether the SSH listener is accepting.
+func (s *Server) Bound() bool {
+	return s != nil && s.ln != nil
+}
+
 // Close stops Accept and closes tracked connections.
 func (s *Server) Close() error {
 	if s == nil {
