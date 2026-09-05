@@ -2,9 +2,24 @@
 
 Last reviewed: 2026-09-04
 
-Integrator change is LAST. This document is the BOM. Product logic
-never moves into `mcplab`. There is **no** NETCONF service in the lab
-today — SWAP-001 adds it.
+Integrator change is LAST (D24). This document is the BOM. Product
+logic never moves into `mcp-integration-lab`. There is **no**
+NETCONF service in the lab today — SWAP-001 adds the overlay files
+in *this* repo only. **Do not implement `vendor.go`. Do not change
+`mcp-integration-lab` in this PR.** The integrator pin is out of
+band after the GA tag.
+
+Copy-paste sources live under `examples/`.
+
+| This repo | Integrator destination |
+|---|---|
+| `examples/labnetconf.yaml` | `profiles/default/labnetconf/bootstrap.yaml` |
+| `examples/mcpjungle/labnetconf.json` | `profiles/default/mcpjungle/servers/labnetconf.json` |
+| `examples/labinfo/services-labnetconf.yaml` | merge into `profiles/default/labinfo/services.yaml` |
+| `examples/profile.env` | merge into `profiles/default/profile.env` |
+| `examples/compose.smoke.yaml` | local appliance smoke only (`:1830`/`:8303`, `cap_drop: ALL`) |
+
+Do not recopy `testdata/config/valid/full.yaml` into the lab overlay.
 
 ## Naming
 
@@ -15,10 +30,14 @@ today — SWAP-001 adds it.
 | Jungle name / file | `labnetconf` / `labnetconf.json` |
 | Token | `secrets/labnetconf-token` `0o644` |
 | Host key | `secrets/labnetconf-hostkey` `0o644` |
+| Alice password | `secrets/netconf-alice` `0o644` |
 | Config mount | `/etc/labnetconf/config.yaml` |
 | Image local | `labnetconf:local` from `./third_party/go-lab-netconf` |
 
 ## Vendor pin
+
+Documented here for the later integrator PR. Not applied in this
+repo. Pin LAST after the GA tag.
 
 ```
 URL:  https://github.com/hilather/go-lab-netconf
@@ -27,6 +46,8 @@ Ref:  v1.0.0-rc.1
 ```
 
 ## Compose
+
+Integrator compose (not `examples/compose.smoke.yaml`):
 
 ```yaml
 labnetconf:
@@ -61,6 +82,8 @@ labnetconf:
 
 ## profile.env
 
+Names in `examples/profile.env`:
+
 ```
 LABNETCONF_SSH_PORT=10830
 LABNETCONF_RESTCONF_PORT=18303
@@ -73,7 +96,8 @@ hosts already run something on 830 or cannot bind it. RESTCONF dest
 
 ## labinfo
 
-Id `labnetconf`. Must include `urls` + `connection`.
+Id `labnetconf`. Snippet: `examples/labinfo/services-labnetconf.yaml`.
+Must include `urls` + `connection`.
 
 Connection endpoints:
 
@@ -84,6 +108,8 @@ Connection endpoints:
 Parameters: SSH user alice, no TLS on RESTCONF in 1.0, profile `router-a`.
 
 ## Jungle
+
+Filename = name `labnetconf`. File: `examples/mcpjungle/labnetconf.json`.
 
 ```json
 {
@@ -97,6 +123,8 @@ Parameters: SSH user alice, no TLS on RESTCONF in 1.0, profile `router-a`.
 Append `labnetconf` to the integration tool group.
 
 ## Smoke
+
+Executed by the integrator after the pin, documented here:
 
 1. NETCONF hello + get-config running hostname via test client on :10830
 2. unauth GET /v1/state → 401

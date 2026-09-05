@@ -1,6 +1,6 @@
 # SWAP-001 — Integrator BOM
 
-Status: not-started
+Status: done
 Depends: MCP-001, SEC-001, DEP-001
 Owns: examples/, docs/13
 

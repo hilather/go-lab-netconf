@@ -67,3 +67,8 @@
   `--management-listen=:8088`. `make test-container` smokes
   `:1830`/`:8303` with `cap_drop ALL`. `examples/compose.smoke.yaml`
   uses the testdata lab host key.
+- Integrator BOM under `examples/` (`labnetconf.yaml`, Jungle
+  `labnetconf.json`, labinfo snippet with `urls` + `connection`,
+  `profile.env` 10830/18303/18830) matching `docs/13`. Vendor pin
+  `v1.0.0-rc.1` dest `third_party/go-lab-netconf` is documented;
+  integrator pin is LAST (out of band after GA). No `vendor.go`.

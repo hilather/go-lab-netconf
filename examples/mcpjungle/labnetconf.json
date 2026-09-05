@@ -1,0 +1,7 @@
+{
+  "name": "labnetconf",
+  "transport": "streamable_http",
+  "description": "Laboratory NETCONF 1.0/1.1 over SSH and RESTCONF JSON device (LabNETCONF): per-user profiles, candidate/running/startup, plan/apply/reset, in-process config-change wait over REST /v1 and MCP /mcp.",
+  "url": "http://labnetconf:8088/mcp",
+  "bearer_token": "${LABNETCONF_TOKEN}"
+}

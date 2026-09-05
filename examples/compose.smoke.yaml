@@ -1,6 +1,10 @@
-# Minimal Compose smoke for the hardened image.
+# Minimal Compose smoke for the hardened image (DEP-001).
 # Default path uses --netconf-listen=:1830 --restconf-listen=:8303 and cap_drop ALL
 # (no NET_BIND_SERVICE). testdata/keys/labnetconf-hostkey is a lab-only key.
+# Integrator overlay is examples/labnetconf.yaml + docs/13: host residual
+# 10830/18303/18830, image labnetconf:local from ./third_party/go-lab-netconf,
+# cap_add NET_BIND_SERVICE because the process binds :830 in the container.
+# Do not fold those integrator ports or the cap into this smoke file.
 services:
   labnetconf:
     image: ghcr.io/hilather/labnetconf:test

@@ -1,0 +1,50 @@
+# labinfo catalog snippet. Catalog id is labnetconf (D15 / Q1).
+# Merge the labnetconf entry into profiles/default/labinfo/services.yaml.
+# Integrator owns the live catalog; this is the BOM. Must include urls
+# and connection (netconf-ssh, restconf, MCP).
+services:
+  - id: labnetconf
+    name: LabNETCONF (lab NETCONF / RESTCONF device)
+    description: Laboratory NETCONF 1.0/1.1 over SSH and RESTCONF JSON with per-user device profiles. Operator SPA at /, REST under /v1, MCP under /mcp. Data planes are SSH subsystem netconf and HTTP /restconf — not management :8088, not LabSSO dest-443.
+    urls:
+      - name: Operator console
+        url: http://${LAB_PUBLIC_HOST}:${LABNETCONF_REST_PORT}/
+      - name: REST API
+        url: http://${LAB_PUBLIC_HOST}:${LABNETCONF_REST_PORT}/v1
+      - name: MCP endpoint
+        url: http://${LAB_PUBLIC_HOST}:${LABNETCONF_REST_PORT}/mcp
+      - name: RESTCONF
+        url: http://${LAB_PUBLIC_HOST}:${LABNETCONF_RESTCONF_PORT}/restconf
+    note: "NETCONF SSH ${LAB_PUBLIC_HOST}:${LABNETCONF_SSH_PORT} subsystem netconf (host residual 10830; IANA dest 830). RESTCONF HTTP ${LAB_PUBLIC_HOST}:${LABNETCONF_RESTCONF_PORT} (18303; do not move to dest-443). Management ${LABNETCONF_REST_PORT} (18830). Identity is SSH/RESTCONF user → profile, not client IP (NAT collision / userland-proxy SNAT does not collapse profiles)."
+    credential:
+      file: /run/lab-secrets/labnetconf-token
+      usage: "HTTP header 'Authorization: Bearer <token>' for native /v1, MCP, and the operator SPA; on the lab host: secrets/labnetconf-token"
+    connection:
+      endpoints:
+        - name: NETCONF SSH
+          protocol: netconf-ssh
+          address: ${LAB_PUBLIC_HOST}:${LABNETCONF_SSH_PORT}
+          note: SSH subsystem netconf; hello + get-config against running
+        - name: RESTCONF
+          protocol: restconf
+          address: http://${LAB_PUBLIC_HOST}:${LABNETCONF_RESTCONF_PORT}/restconf
+          note: RFC 8040 JSON over HTTP; no TLS in 1.0
+        - name: MCP (streamable HTTP)
+          protocol: mcp-streamable-http
+          address: http://${LAB_PUBLIC_HOST}:${LABNETCONF_REST_PORT}/mcp
+          note: bearer only; gateway interpolates LABNETCONF_TOKEN
+      parameters:
+        ssh_user: alice
+        ssh_subsystem: netconf
+        restconf_tls: "false (1.0; listeners.restconf.tls.enabled true rejects)"
+        restconf_auth: "HTTP Basic against spec.users (alice); management bearer does not unlock /restconf"
+        profile: router-a
+        hostname: lab-rtr-a
+        dest_ports: "host publish default ${LABNETCONF_SSH_PORT}/${LABNETCONF_RESTCONF_PORT}/${LABNETCONF_REST_PORT} (10830/18303/18830). Privileged 830 is a profile opt-in when preflight can free it. RESTCONF dest 443 belongs to LabSSO."
+      credentials:
+        - name: labnetconf-token
+          file: /run/lab-secrets/labnetconf-token
+          usage: "HTTP header 'Authorization: Bearer <token>' for native /v1 and MCP; on the lab host: secrets/labnetconf-token"
+        - name: netconf-alice
+          file: /run/lab-secrets/netconf-alice
+          usage: "SSH password and RESTCONF Basic password for user alice (profile router-a); on the lab host: secrets/netconf-alice"

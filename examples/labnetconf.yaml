@@ -1,0 +1,73 @@
+# Lab overlay BOM for mcp-integration-lab. Copy to
+# profiles/default/labnetconf/bootstrap.yaml and mount at
+# /etc/labnetconf/config.yaml. Do not recopy testdata/config/valid/full.yaml
+# or testdata/container/config.yaml (that last file is DEP-001 compose smoke).
+# allowLegacyClients is on so MCPJungle can register without a LabNETCONF
+# patch (D17). Bind-mounted secret files must be 0o644 (UID 65532).
+# Catalog id is labnetconf (D15). Vendor pin is documented in docs/13
+# (v1.0.0-rc.1 dest third_party/go-lab-netconf); integrator pin is LAST
+# after the GA tag. Do not implement vendor.go in this repo.
+apiVersion: labnetconf.dev/v1alpha1
+kind: LabNETCONF
+metadata:
+  name: lab-device
+spec:
+  listeners:
+    netconf:
+      enabled: true
+      address: ":830"
+      hostKeyFile: /run/secrets/labnetconf-hostkey
+    restconf:
+      enabled: true
+      address: ":8303"
+      tls:
+        enabled: false
+    management:
+      address: ":8088"
+      restPath: /v1
+      mcpPath: /mcp
+  auth:
+    mode: bearer
+    tokens:
+      - id: admin
+        role: administrator
+        secretFile: /run/secrets/labnetconf-token
+  ui:
+    enabled: true
+  management:
+    allowedOrigins: []
+    mcp:
+      allowLegacyClients: true
+  netconf:
+    versions: ["1.0", "1.1"]
+    writableRunning: false
+    notifications:
+      enabled: true
+    sharedProfileDatastore: false
+  restconf:
+    json: true
+    xml: false
+  admission:
+    allowClientCidrs:
+      - "10.99.42.0/24"
+      - "127.0.0.0/8"
+      - "::1/128"
+  profiles:
+    - name: router-a
+      modules:
+        - name: ietf-system
+          revision: "2014-08-06"
+          namespace: "urn:ietf:params:xml:ns:yang:ietf-system"
+      schema:
+        - path: "ietf-system:system/hostname"
+          type: string
+          access: write
+      instance:
+        ietf-system:
+          system:
+            hostname: "lab-rtr-a"
+  users:
+    - name: alice
+      passwordFile: /run/secrets/netconf-alice
+      profile: router-a
+      access: read-write
