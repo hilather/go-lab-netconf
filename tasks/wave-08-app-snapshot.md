@@ -1,6 +1,6 @@
 # APP-001 — Snapshot, plan/apply/reset
 
-Status: not-started
+Status: complete
 Depends: CFG-001, TREE-001
 Owns: internal/app, internal/compiler, internal/snapshot
 

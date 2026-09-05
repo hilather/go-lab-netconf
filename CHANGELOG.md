@@ -25,3 +25,10 @@
   and increments `storeGeneration`. RESTCONF writes running through
   `WriteRunningIfCandidateClean` when candidate is clean and
   unlocked, else `candidate_dirty`. Locks are per profile-instance.
+- Snapshot compiler (`internal/compiler`, `internal/snapshot`) and
+  plan/apply/reset (`internal/app`). Closed apply ops from docs/04
+  require `expectedRevision` and `Idempotency-Key`. Reset rereads
+  bootstrap, restores running/candidate/startup, drops locks, and
+  wipes notifications; the process never writes the bootstrap file.
+  `datastore:set` / commit / discard are Service methods, not apply
+  verbs.
