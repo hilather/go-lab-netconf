@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [1.0.0-rc.1] - 2026-09-05
+
+### Security
+
+- Pin `golang.org/x/crypto` to v0.56.0 so `govulncheck` is clean on
+  `internal/netconfssh` (`ssh.NewServerConn`). v0.41.0 was affected
+  by GO-2026-5017, GO-2026-5014, GO-2026-5013, GO-2025-4134,
+  GO-2026-6355, GO-2026-6354, and GO-2026-6303.
+
 ### Added
 
 - Design pack for LabNETCONF 1.0 (NETCONF over SSH + RESTCONF).
