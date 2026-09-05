@@ -84,12 +84,12 @@ func TestWrongSubsystemRejected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cli.Close()
+	defer func() { _ = cli.Close() }()
 	sess, err := cli.NewSession()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer sess.Close()
+	defer func() { _ = sess.Close() }()
 	if err := sess.RequestSubsystem("sftp"); err == nil {
 		t.Fatal("subsystem sftp was accepted")
 	}

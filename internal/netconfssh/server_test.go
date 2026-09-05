@@ -24,7 +24,7 @@ func TestPasswordAuthSucceeds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("password auth: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	if err := requestSubsystem(t, c, "netconf"); err != nil {
 		t.Fatalf("subsystem netconf: %v", err)
 	}
@@ -50,7 +50,7 @@ func TestPublicKeyAuthSucceeds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("publickey auth: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	if err := requestSubsystem(t, c, "netconf"); err != nil {
 		t.Fatalf("subsystem netconf: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestWrongSubsystemRejected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	if err := requestSubsystem(t, c, "sftp"); err == nil {
 		t.Fatal("subsystem sftp was accepted")
 	}
@@ -143,7 +143,7 @@ func TestWrongSubsystemRejected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 	if err := requestSubsystem(t, c2, "netconf"); err != nil {
 		t.Fatalf("subsystem netconf: %v", err)
 	}
@@ -157,7 +157,7 @@ func TestAdmissionEmptyDenyAll(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tcp dial: %v", err)
 	}
-	defer tcp.Close()
+	defer func() { _ = tcp.Close() }()
 	cfg := &ssh.ClientConfig{
 		User:            "alice",
 		Auth:            []ssh.AuthMethod{ssh.Password("alice-lab-password")},

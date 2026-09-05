@@ -113,7 +113,7 @@ func (s *session) doEdit(ctx context.Context, rpc ncrpc.RPC) ncrpc.Reply {
 	if rpc.Target != ncrpc.StoreCandidate {
 		return errReply(rpc.MessageID, rpcErr("protocol", "operation-not-supported", "edit-config target must be candidate"))
 	}
-	op := yangtree.OpMerge
+	var op yangtree.Operation
 	switch rpc.DefaultOp {
 	case "", "merge":
 		op = yangtree.OpMerge

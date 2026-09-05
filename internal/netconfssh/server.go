@@ -152,7 +152,7 @@ func (s *Server) Serve(ctx context.Context) error {
 }
 
 func (s *Server) handle(ctx context.Context, conn net.Conn) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	if !admit(conn.RemoteAddr(), s.cfg.AllowCIDRs) {
 		return
 	}
@@ -163,7 +163,7 @@ func (s *Server) handle(ctx context.Context, conn net.Conn) {
 	if err != nil {
 		return
 	}
-	defer sshConn.Close()
+	defer func() { _ = sshConn.Close() }()
 	go ssh.DiscardRequests(reqs)
 
 	for newCh := range chans {
@@ -180,7 +180,7 @@ func (s *Server) handle(ctx context.Context, conn net.Conn) {
 }
 
 func (s *Server) session(ctx context.Context, username, remote string, ch ssh.Channel, reqs <-chan *ssh.Request) {
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 	for req := range reqs {
 		switch req.Type {
 		case "subsystem":

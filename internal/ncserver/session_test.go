@@ -154,8 +154,8 @@ func TestReadOnlyAccessDeniedOnEdit(t *testing.T) {
 func TestUnknownUserServeFails(t *testing.T) {
 	srv := New(Config{Users: []User{{Name: "alice", Profile: "router-a", Handle: mustHandle(t, "router-a", "lab-rtr-a", nil)}}})
 	a, b := net.Pipe()
-	defer a.Close()
-	defer b.Close()
+	defer func() { _ = a.Close() }()
+	defer func() { _ = b.Close() }()
 	errc := make(chan error, 1)
 	go func() { errc <- srv.Serve(context.Background(), "nonesuch", "127.0.0.1:1", a) }()
 	err := <-errc
