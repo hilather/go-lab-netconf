@@ -188,7 +188,7 @@ func doJSON(t *testing.T, ts *httptest.Server, method, path, user, pass, body st
 
 func readJSON(t *testing.T, res *http.Response) map[string]any {
 	t.Helper()
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	b, err := io.ReadAll(res.Body)
 	if err != nil {
 		t.Fatal(err)

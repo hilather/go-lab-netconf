@@ -59,3 +59,11 @@
   is not mounted on management. `make generate` / `verify-generated`
   write and check `api/capabilities/v1.json`, `api/openapi/v1.json`,
   and `api/errors/v1.json`.
+- `labnetconf serve` binds SSH NETCONF, RESTCONF, and optional
+  management (`--management-listen` defaults off). `healthcheck`
+  probes `GET /v1/health/ready`. `mcp-stdio` requires `--config` and
+  `--token-file`. Scratch image `ghcr.io/hilather/labnetconf` runs
+  UID 65532 with HEALTHCHECK ready and CMD
+  `--management-listen=:8088`. `make test-container` smokes
+  `:1830`/`:8303` with `cap_drop ALL`. `examples/compose.smoke.yaml`
+  uses the testdata lab host key.

@@ -33,7 +33,7 @@ help:
 		'  web-test            Vitest operator SPA tests (UI-001)' \
 		'  web-build           production Vite build + copy into internal/web/dist (UI-001)' \
 		'  web-embed           copy web/dist into internal/web/dist (UI-001)' \
-		'  test-container      build image and check non-root/read-only (DEP-001)' \
+		'  test-container      build scratch image and smoke :1830/:8303 (DEP-001)' \
 		'  test-changelog      observable paths require a CHANGELOG.md entry'
 
 fmt: format
@@ -97,8 +97,7 @@ web-embed:
 	@exit 1
 
 test-container:
-	@echo 'test-container: not implemented until DEP-001' >&2
-	@exit 1
+	bash scripts/test-container.sh
 
 test-changelog:
 	$(GO) run ./scripts/checkchangelog

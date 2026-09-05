@@ -26,6 +26,9 @@ type User struct {
 type Config struct {
 	Users []User
 	Sink  notif.Sink
+	// HandleFor, if set, supplies the live datastore at session start so
+	// reset-rebuilt handles are used instead of the constructor snapshot.
+	HandleFor func(username string) (datastore.Handle, bool)
 }
 
 // SessionInfo is one row of the live session table.
@@ -38,9 +41,10 @@ type SessionInfo struct {
 
 // Server owns the session table and dispatches RPCs into datastores.
 type Server struct {
-	users  map[string]User
-	sink   notif.Sink
-	nextID atomic.Uint64
+	users     map[string]User
+	sink      notif.Sink
+	handleFor func(username string) (datastore.Handle, bool)
+	nextID    atomic.Uint64
 
 	mu       sync.Mutex
 	sessions map[string]*session
@@ -56,9 +60,10 @@ func New(cfg Config) *Server {
 		users[u.Name] = u
 	}
 	return &Server{
-		users:    users,
-		sink:     cfg.Sink,
-		sessions: map[string]*session{},
+		users:     users,
+		sink:      cfg.Sink,
+		handleFor: cfg.HandleFor,
+		sessions:  map[string]*session{},
 	}
 }
 
@@ -71,6 +76,11 @@ func (s *Server) Serve(ctx context.Context, username, remoteAddr string, rw io.R
 	if !ok {
 		_ = rw.Close()
 		return fmt.Errorf("ncserver: unknown user")
+	}
+	if s.handleFor != nil {
+		if h, ok := s.handleFor(username); ok {
+			user.Handle = h
+		}
 	}
 	if user.Handle == nil {
 		_ = rw.Close()

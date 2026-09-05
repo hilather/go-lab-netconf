@@ -47,16 +47,20 @@ type Config struct {
 	Handles          map[string]datastore.Handle
 	AllowClientCidrs []string // nil = loopback; empty = deny-all
 	YangLibraryDate  string
+	// HandleFor, if set, supplies the live datastore per authenticated user
+	// so reset-rebuilt handles are used instead of the constructor map.
+	HandleFor func(username, profile string) (datastore.Handle, bool)
 }
 
 // Server is an HTTP handler for RFC 8040 JSON RESTCONF.
 type Server struct {
-	addr     string
-	users    []User
-	handles  map[string]datastore.Handle
-	cidrs    []*net.IPNet
-	denyAll  bool
-	yangDate string
+	addr      string
+	users     []User
+	handles   map[string]datastore.Handle
+	handleFor func(username, profile string) (datastore.Handle, bool)
+	cidrs     []*net.IPNet
+	denyAll   bool
+	yangDate  string
 }
 
 var _ http.Handler = (*Server)(nil)
@@ -88,12 +92,13 @@ func New(cfg Config) (*Server, error) {
 		addr = DefaultAddr
 	}
 	return &Server{
-		addr:     addr,
-		users:    users,
-		handles:  copied,
-		cidrs:    cidrs,
-		denyAll:  denyAll,
-		yangDate: date,
+		addr:      addr,
+		users:     users,
+		handles:   copied,
+		handleFor: cfg.HandleFor,
+		cidrs:     cidrs,
+		denyAll:   denyAll,
+		yangDate:  date,
 	}, nil
 }
 
@@ -215,13 +220,29 @@ func (s *Server) serveOperations(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleForUser(u *User) (datastore.Handle, bool) {
+	if u == nil {
+		return nil, false
+	}
+	if s.handleFor != nil {
+		if h, ok := s.handleFor(u.Name, u.Profile); ok && h != nil {
+			return h, true
+		}
+	}
+	if h, ok := s.handles[u.Name]; ok && h != nil {
+		return h, true
+	}
+	h, ok := s.handles[u.Profile]
+	return h, ok && h != nil
+}
+
 func (s *Server) serveData(w http.ResponseWriter, r *http.Request) {
 	u, err := s.authenticate(r)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-	h, ok := s.handles[u.Profile]
+	h, ok := s.handleForUser(u)
 	if !ok || h == nil {
 		writeError(w, domainerr.NotFound("no datastore for profile"))
 		return

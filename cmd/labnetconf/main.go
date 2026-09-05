@@ -2,18 +2,21 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/hilather/go-lab-netconf/internal/buildinfo"
 )
 
 func main() {
-	os.Exit(run(os.Args, os.Stdout, os.Stderr))
+	os.Exit(run(os.Args, os.Stdin, os.Stdout, os.Stderr))
 }
 
-func run(args []string, stdout, stderr io.Writer) int {
+func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) < 2 {
 		printUsage(stderr)
 		return 2
@@ -29,18 +32,21 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return validateCmd(args[2:], stdout, stderr)
 	case "canonicalize":
 		return canonicalizeCmd(args[2:], stdout, stderr)
-	case "serve", "healthcheck", "mcp-stdio":
-		return notImplemented(args[1], stderr)
+	case "serve":
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return serveCmd(ctx, args[2:], stdout, stderr)
+	case "healthcheck":
+		return healthcheckCmd(args[2:], stdout, stderr)
+	case "mcp-stdio":
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return mcpStdioCmd(ctx, args[2:], stdin, stdout, stderr)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown command: %s\n", args[1])
 		printUsage(stderr)
 		return 2
 	}
-}
-
-func notImplemented(name string, stderr io.Writer) int {
-	_, _ = fmt.Fprintf(stderr, "labnetconf %s: not implemented\n", name)
-	return 1
 }
 
 func printUsage(w io.Writer) {

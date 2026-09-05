@@ -16,7 +16,7 @@ This is not a production NMS, not ConfD, and not netopeer2.
 | RESTCONF | `:8303` · host residual **18303** |
 | Control | `/v1` `/mcp` `/` · host **18830** |
 
-Status: fail-closed `labnetconf.dev/v1alpha1` YAML loads via
-`labnetconf validate`. NETCONF 1.0/1.1 framing and hello/RPC XML
-codecs are in `internal/ncframing` and `internal/ncrpc`. Start at
-`START-HERE.md` and `AGENTS.md`.
+Status: `labnetconf serve` binds SSH NETCONF and RESTCONF from a
+fail-closed `labnetconf.dev/v1alpha1` document. Management `/v1`
+binds only with `--management-listen`. Scratch image UID 65532.
+Start at `START-HERE.md` and `AGENTS.md`.

@@ -41,7 +41,7 @@ func TestPatchWhenCleanUpdatesRunningAndCandidate(t *testing.T) {
 	if res.StatusCode != http.StatusNoContent {
 		t.Fatalf("PATCH status = %d code=%s", res.StatusCode, problemCode(t, res))
 	}
-	res.Body.Close()
+	_ = res.Body.Close()
 
 	if leafHostname(t, inner, datastore.Running) != "restconf" {
 		t.Fatalf("running = %q, want restconf", leafHostname(t, inner, datastore.Running))
@@ -166,7 +166,7 @@ func TestHostMetaYangLibraryOperations(t *testing.T) {
 		t.Fatal(err)
 	}
 	body, err := io.ReadAll(res.Body)
-	res.Body.Close()
+	_ = res.Body.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -337,7 +337,7 @@ func TestXMLRejected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res.Body.Close()
+	_ = res.Body.Close()
 	if res.StatusCode != http.StatusUnsupportedMediaType {
 		t.Fatalf("XML PATCH status = %d, want 415", res.StatusCode)
 	}
@@ -356,7 +356,7 @@ func TestPutPostDelete(t *testing.T) {
 	if res.StatusCode != http.StatusNoContent {
 		t.Fatalf("PUT status = %d code=%s", res.StatusCode, problemCode(t, res))
 	}
-	res.Body.Close()
+	_ = res.Body.Close()
 	if leafHostname(t, inner, datastore.Running) != "put-host" || leafHostname(t, inner, datastore.Candidate) != "put-host" {
 		t.Fatalf("after PUT running=%q candidate=%q", leafHostname(t, inner, datastore.Running), leafHostname(t, inner, datastore.Candidate))
 	}
@@ -366,7 +366,7 @@ func TestPutPostDelete(t *testing.T) {
 	if res.StatusCode != http.StatusCreated {
 		t.Fatalf("POST status = %d code=%s", res.StatusCode, problemCode(t, res))
 	}
-	res.Body.Close()
+	_ = res.Body.Close()
 	if leafHostname(t, inner, datastore.Running) != "post-host" {
 		t.Fatalf("after POST running=%q", leafHostname(t, inner, datastore.Running))
 	}
@@ -376,7 +376,7 @@ func TestPutPostDelete(t *testing.T) {
 	if res.StatusCode != http.StatusNoContent {
 		t.Fatalf("DELETE status = %d code=%s", res.StatusCode, problemCode(t, res))
 	}
-	res.Body.Close()
+	_ = res.Body.Close()
 	if leafHostname(t, inner, datastore.Running) != "" {
 		t.Fatalf("after DELETE running=%q", leafHostname(t, inner, datastore.Running))
 	}
@@ -408,7 +408,7 @@ func TestUserIsolation(t *testing.T) {
 	}
 	res := doJSON(t, ts, http.MethodPatch, "/restconf/data/ietf-system:system/hostname",
 		aliceUser, alicePass, `{"ietf-system:hostname":"from-alice"}`)
-	res.Body.Close()
+	_ = res.Body.Close()
 	if res.StatusCode != http.StatusNoContent {
 		t.Fatalf("alice PATCH status = %d", res.StatusCode)
 	}
@@ -530,7 +530,7 @@ func TestRootGetAndPatch(t *testing.T) {
 	if res.StatusCode != http.StatusNoContent {
 		t.Fatalf("root PATCH status = %d code=%s", res.StatusCode, problemCode(t, res))
 	}
-	res.Body.Close()
+	_ = res.Body.Close()
 	if leafHostname(t, inner, datastore.Running) != "from-root" || leafHostname(t, inner, datastore.Candidate) != "from-root" {
 		t.Fatalf("running=%q candidate=%q", leafHostname(t, inner, datastore.Running), leafHostname(t, inner, datastore.Candidate))
 	}

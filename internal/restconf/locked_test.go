@@ -97,7 +97,7 @@ func TestMissingAuth401(t *testing.T) {
 	res := doJSON(t, ts, http.MethodGet, "/restconf/data/ietf-system:system/hostname", "", "", "")
 	if res.StatusCode != http.StatusUnauthorized {
 		body, _ := io.ReadAll(res.Body)
-		res.Body.Close()
+		_ = res.Body.Close()
 		t.Fatalf("status = %d body=%s", res.StatusCode, body)
 	}
 	if got := problemCode(t, res); got != string(domainerr.CodeUnauthorized) {

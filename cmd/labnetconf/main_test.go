@@ -30,7 +30,7 @@ func repoRoot(t *testing.T) string {
 
 func TestVersion(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"labnetconf", "version"}, &stdout, &stderr)
+	code := run([]string{"labnetconf", "version"}, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit %d, stderr=%q", code, stderr.String())
 	}
@@ -48,7 +48,7 @@ func TestVersion(t *testing.T) {
 
 func TestUsage(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"labnetconf"}, &stdout, &stderr)
+	code := run([]string{"labnetconf"}, nil, &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit %d, want 2", code)
 	}
@@ -59,7 +59,7 @@ func TestUsage(t *testing.T) {
 
 func TestHelp(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"labnetconf", "help"}, &stdout, &stderr)
+	code := run([]string{"labnetconf", "help"}, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit %d", code)
 	}
@@ -73,29 +73,52 @@ func TestHelp(t *testing.T) {
 
 func TestUnknownCommand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"labnetconf", "query-remote"}, &stdout, &stderr)
+	code := run([]string{"labnetconf", "query-remote"}, nil, &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit %d, want 2", code)
 	}
 }
 
-func TestUnimplementedCommands(t *testing.T) {
-	for _, cmd := range []string{"serve", "healthcheck", "mcp-stdio"} {
-		var stdout, stderr bytes.Buffer
-		code := run([]string{"labnetconf", cmd}, &stdout, &stderr)
-		if code != 1 {
-			t.Fatalf("%s exit %d, want 1", cmd, code)
-		}
-		if !strings.Contains(stderr.String(), "not implemented") {
-			t.Fatalf("%s stderr %q missing not implemented", cmd, stderr.String())
-		}
+func TestServeRequiresConfig(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"labnetconf", "serve"}, nil, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("exit %d, want 2 stderr=%q", code, stderr.String())
+	}
+}
+
+func TestHealthcheckRequiresReachableURL(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"labnetconf", "healthcheck", "--url", "http://127.0.0.1:1/v1/health/ready"}, nil, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("exit %d, want 1 stderr=%q", code, stderr.String())
+	}
+}
+
+func TestMCPStdioRequiresFlags(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"labnetconf", "mcp-stdio"}, nil, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("exit %d, want 2", code)
+	}
+	if !strings.Contains(stderr.String(), "--config") {
+		t.Fatalf("stderr %q missing --config", stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{"labnetconf", "mcp-stdio", "--config", "x.yaml"}, nil, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("token-file exit %d, want 2", code)
+	}
+	if !strings.Contains(stderr.String(), "--token-file") {
+		t.Fatalf("stderr %q missing --token-file", stderr.String())
 	}
 }
 
 func TestValidateAndCanonicalize(t *testing.T) {
 	path := filepath.Join(repoRoot(t), "testdata/config/valid/full.yaml")
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"labnetconf", "validate", "--config", path}, &stdout, &stderr)
+	code := run([]string{"labnetconf", "validate", "--config", path}, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("validate exit %d stderr=%q", code, stderr.String())
 	}
@@ -104,7 +127,7 @@ func TestValidateAndCanonicalize(t *testing.T) {
 	}
 	stdout.Reset()
 	stderr.Reset()
-	code = run([]string{"labnetconf", "canonicalize", "--config", path, "--format", "json"}, &stdout, &stderr)
+	code = run([]string{"labnetconf", "canonicalize", "--config", path, "--format", "json"}, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("canonicalize exit %d stderr=%q", code, stderr.String())
 	}
@@ -119,7 +142,7 @@ func TestValidateAndCanonicalize(t *testing.T) {
 
 func TestValidateRequiresConfig(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"labnetconf", "validate"}, &stdout, &stderr)
+	code := run([]string{"labnetconf", "validate"}, nil, &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit %d", code)
 	}
@@ -128,7 +151,7 @@ func TestValidateRequiresConfig(t *testing.T) {
 func TestValidateRejectsInvalid(t *testing.T) {
 	path := filepath.Join(repoRoot(t), "testdata/config/invalid/tls-enabled.yaml")
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"labnetconf", "validate", "--config", path}, &stdout, &stderr)
+	code := run([]string{"labnetconf", "validate", "--config", path}, nil, &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("exit %d, want 1", code)
 	}

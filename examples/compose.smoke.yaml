@@ -1,0 +1,37 @@
+# Minimal Compose smoke for the hardened image.
+# Default path uses --netconf-listen=:1830 --restconf-listen=:8303 and cap_drop ALL
+# (no NET_BIND_SERVICE). testdata/keys/labnetconf-hostkey is a lab-only key.
+services:
+  labnetconf:
+    image: ghcr.io/hilather/labnetconf:test
+    command:
+      - serve
+      - --config=/etc/labnetconf/config.yaml
+      - --netconf-listen=:1830
+      - --restconf-listen=:8303
+      - --management-listen=:8088
+    ports:
+      - "127.0.0.1:1830:1830/tcp"
+      - "127.0.0.1:8303:8303/tcp"
+      - "127.0.0.1:8088:8088/tcp"
+    volumes:
+      - "../testdata/container/config.yaml:/etc/labnetconf/config.yaml:ro"
+      - "../testdata/container/token:/etc/labnetconf/token:ro"
+      - "../testdata/keys/labnetconf-hostkey:/etc/labnetconf/hostkey:ro"
+      - "../testdata/keys/alice.password:/etc/labnetconf/alice.password:ro"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "65532:65532"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/labnetconf", "healthcheck", "--url=http://127.0.0.1:8088/v1/health/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - default
