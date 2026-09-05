@@ -12,7 +12,11 @@ import (
 	"testing"
 
 	"github.com/hilather/go-lab-netconf/internal/app"
+	"github.com/hilather/go-lab-netconf/internal/auth"
+	"github.com/hilather/go-lab-netconf/internal/model"
 )
+
+const testToken = "0123456789abcdef0123456789abcdef"
 
 func repoRoot(t *testing.T) string {
 	t.Helper()
@@ -62,7 +66,10 @@ func newTestServer(t *testing.T) (*Server, *app.App) {
 
 func newServerFor(t *testing.T, svc *app.App) (*Server, *app.App) {
 	t.Helper()
-	s, err := New(Config{Service: svc})
+	s, err := New(Config{
+		Service: svc,
+		Auth:    auth.Static(testToken, "admin", model.RoleAdministrator),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,6 +86,7 @@ func doJSON(t *testing.T, s *Server, method, path, body string) *http.Response {
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	req.Header.Set("Authorization", "Bearer "+testToken)
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, req)
 	return w.Result()

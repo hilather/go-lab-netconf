@@ -4,8 +4,18 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/hilather/go-lab-netconf/internal/audit"
 	"github.com/hilather/go-lab-netconf/internal/model"
 )
+
+// Actor is the caller identity recorded on audit events.
+type Actor struct {
+	ID        string
+	Class     string
+	Role      string
+	Scopes    []string
+	Transport string
+}
 
 const (
 	ApplyLive      = "live"
@@ -152,7 +162,5 @@ type AuditQuery struct {
 	Limit int
 }
 
-// AuditEvent is one mutation record. Empty until the audit ring exists.
-type AuditEvent struct {
-	ID string
-}
+// AuditEvent is one mutation record from the in-process ring.
+type AuditEvent = audit.Event

@@ -166,6 +166,7 @@ func (s *App) ListUsers(ctx context.Context) ([]UserView, error) {
 	}
 	out := make([]UserView, 0, len(snap.Users))
 	for _, u := range snap.Users {
+		// Paths only — secret file contents are never loaded into the snapshot.
 		out = append(out, UserView{
 			Name:               u.Name,
 			Profile:            u.Profile,
@@ -193,12 +194,4 @@ func (s *App) KillSession(ctx context.Context, id string) error {
 			domainerr.FieldViolation{Path: "id", Code: "required", Message: "id is required"})
 	}
 	return domainerr.NotFound("session " + id + " not found")
-}
-
-func (s *App) QueryAudit(ctx context.Context, q AuditQuery) ([]AuditEvent, error) {
-	if err := s.requireCtx(ctx); err != nil {
-		return nil, err
-	}
-	_ = q
-	return nil, nil
 }

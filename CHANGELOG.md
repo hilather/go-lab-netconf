@@ -39,3 +39,10 @@
   is not mounted on management. `make generate` / `verify-generated`
   write and check `api/capabilities/v1.json`, `api/openapi/v1.json`,
   and `api/errors/v1.json`.
+- Management bearer (`spec.auth` file-ref, ≥32 bytes) and SPA cookie
+  `labnetconf_session` with CSRF header `X-LabNETCONF-CSRF` on cookie
+  POST. Origins exact-match `allowedOrigins`. Basic is rejected on
+  `/v1` (401 Bearer); RESTCONF Basic against `spec.users` is unchanged.
+  Administrator has all scopes; reader has `netconf.read`. Mutations
+  append to an in-process audit ring. Secret bytes stay out of GET
+  state, the users list, info logs, and metric labels.

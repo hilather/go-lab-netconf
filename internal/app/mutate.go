@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/hilather/go-lab-netconf/internal/audit"
 	"github.com/hilather/go-lab-netconf/internal/compiler"
 	"github.com/hilather/go-lab-netconf/internal/config"
 	"github.com/hilather/go-lab-netconf/internal/domainerr"
@@ -41,26 +42,37 @@ func (s *App) Apply(ctx context.Context, ops []ApplyOp, expectedRev, idempotency
 		return ApplyResult{}, err
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	res, hooks, err := s.applyLocked(ctx, ops, expectedRev, idempotencyKey)
+	s.mu.Unlock()
+	if err != nil {
+		return ApplyResult{}, err
+	}
+	for _, fn := range hooks {
+		fn()
+	}
+	return res, nil
+}
+
+func (s *App) applyLocked(ctx context.Context, ops []ApplyOp, expectedRev, idempotencyKey string) (ApplyResult, []func(), error) {
 	if idempotencyKey == "" {
-		return ApplyResult{}, domainerr.ValidationFailed("Idempotency-Key is required",
+		return ApplyResult{}, nil, domainerr.ValidationFailed("Idempotency-Key is required",
 			domainerr.FieldViolation{Path: "idempotencyKey", Code: "required", Message: "Idempotency-Key is required for apply"})
 	}
 	fp, err := fingerprintOps(ops)
 	if err != nil {
-		return ApplyResult{}, err
+		return ApplyResult{}, nil, err
 	}
 	if hit, err := s.idemp.lookup(idempotencyKey, fp); err != nil {
-		return ApplyResult{}, err
+		return ApplyResult{}, nil, err
 	} else if hit != nil && hit.apply != nil {
-		return *cloneApply(hit.apply), nil
+		return *cloneApply(hit.apply), nil, nil
 	}
 	cand, err := s.buildCandidate(ops, expectedRev, true)
 	if err != nil {
 		s.forgetIdempOnConflict(idempotencyKey, err)
-		return ApplyResult{}, err
+		return ApplyResult{}, nil, err
 	}
-	s.snaps.Swap(cand.next)
+	prev := s.snaps.Swap(cand.next)
 	s.syncHandles(cand.prev, cand.next)
 	res := ApplyResult{
 		Plan:            s.planFrom(cand),
@@ -68,8 +80,15 @@ func (s *App) Apply(ctx context.Context, ops []ApplyOp, expectedRev, idempotency
 		Generation:      cand.next.Generation,
 		RuntimeRevision: cand.next.Revision,
 	}
+	s.recordAudit(ctx, audit.Event{
+		Capability: "changes.apply",
+		Previous:   revisionOf(prev),
+		Revision:   cand.next.Revision,
+		Result:     audit.ResultOK,
+		Diff:       toAuditDiff(cand.diff),
+	})
 	s.idemp.storeApply(idempotencyKey, fp, &res)
-	return *cloneApply(&res), nil
+	return *cloneApply(&res), append([]func(){}, s.applyHooks...), nil
 }
 
 func (s *App) buildCandidate(ops []ApplyOp, expectedRev string, requireRev bool) (*candidate, error) {
@@ -138,6 +157,13 @@ func (s *App) planFrom(c *candidate) Plan {
 		Diff:              c.diff,
 		Operations:        append([]ApplyOp(nil), c.ops...),
 	}
+}
+
+func revisionOf(snap *snapshot.Snapshot) model.Revision {
+	if snap == nil {
+		return ""
+	}
+	return snap.Revision
 }
 
 func (s *App) forgetIdempOnConflict(key string, err error) {

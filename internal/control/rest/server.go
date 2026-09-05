@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hilather/go-lab-netconf/internal/app"
+	"github.com/hilather/go-lab-netconf/internal/auth"
 	"github.com/hilather/go-lab-netconf/internal/capabilities"
 	"github.com/hilather/go-lab-netconf/internal/config"
 	"github.com/hilather/go-lab-netconf/internal/domainerr"
@@ -36,6 +37,7 @@ const (
 type Config struct {
 	Addr              string
 	Service           app.Service
+	AllowedOrigins    []string
 	Live              func() bool
 	Ready             func() bool
 	MaxBodyBytes      int64
@@ -43,6 +45,9 @@ type Config struct {
 	ReadHeaderTimeout time.Duration
 	ReadTimeout       time.Duration
 	WriteTimeout      time.Duration
+	Auth              *auth.Verifier
+	Sessions          *auth.Store
+	CookieSecure      bool
 	UI                http.Handler
 	UIEnabled         func() bool
 }
@@ -76,6 +81,17 @@ func New(cfg Config) (*Server, error) {
 	if timeout <= 0 {
 		timeout = DefaultRequestTimeout
 	}
+	if cfg.Sessions == nil {
+		cfg.Sessions = auth.NewStore(auth.DefaultSessionConfig())
+	}
+	if cfg.Auth != nil {
+		sessions := cfg.Sessions
+		cfg.Auth.OnIdentityChange(func() {
+			if sessions != nil {
+				sessions.Clear()
+			}
+		})
+	}
 	s := &Server{
 		cfg:     cfg,
 		svc:     cfg.Service,
@@ -83,6 +99,10 @@ func New(cfg Config) (*Server, error) {
 		maxBody: maxBody,
 		timeout: timeout,
 		addr:    cfg.Addr,
+	}
+	if appSvc, ok := s.svc.(*app.App); ok {
+		appSvc.OnReset(s.reloadAuth)
+		appSvc.OnApply(s.reloadAuth)
 	}
 	s.handler = http.HandlerFunc(s.serveHTTP)
 	return s, nil
@@ -210,6 +230,15 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	if err := auth.CheckOrigin(r.Header.Get("Origin"), s.cfg.AllowedOrigins); err != nil {
+		s.writeProblem(w, r, instance, err)
+		return
+	}
+	if r.Method == http.MethodOptions {
+		s.writeProblem(w, r, instance, domainerr.Forbidden("CORS is disabled"))
+		return
+	}
+
 	rt, params, pathOK, methodOK := matchRoute(s.routes, r.Method, r.URL.Path)
 	if pathOK {
 		if !methodOK {
@@ -218,14 +247,20 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 				domainerr.FieldViolation{Path: "", Code: "invalid_value", Message: "method not allowed"}))
 			return
 		}
-		if err := s.authenticate(r, isHealthCap(rt.cap)); err != nil {
+		if isHealthCap(rt.cap) {
+			s.dispatch(w, r, instance, rt, params)
+			return
+		}
+		actor, err := s.authenticate(r)
+		if err != nil {
 			s.writeProblem(w, r, instance, err)
 			return
 		}
-		if err := s.authorize(r, rt.cap); err != nil {
+		if err := s.authorize(r, actor, rt.cap); err != nil {
 			s.writeProblem(w, r, instance, err)
 			return
 		}
+		r = r.WithContext(app.WithActor(r.Context(), actor))
 		s.dispatch(w, r, instance, rt, params)
 		return
 	}
@@ -234,6 +269,33 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeProblem(w, r, instance, domainerr.NotFound("not found"))
+}
+
+func (s *Server) reloadAuth() {
+	if s.cfg.Auth == nil {
+		return
+	}
+	appSvc, ok := s.svc.(*app.App)
+	if !ok {
+		return
+	}
+	snap := appSvc.Active()
+	if snap == nil || snap.Canonical == nil {
+		return
+	}
+	s.cfg.AllowedOrigins = append([]string(nil), snap.Canonical.Spec.Management.AllowedOrigins...)
+	next, err := auth.FromSpec(snap.Canonical.Spec.Auth)
+	if err != nil {
+		return
+	}
+	if err := next.RequireListen(); err != nil {
+		return
+	}
+	changed := !s.cfg.Auth.Equivalent(next)
+	s.cfg.Auth.Replace(next)
+	if changed && s.cfg.Sessions != nil {
+		s.cfg.Sessions.Clear()
+	}
 }
 
 func isHealthCap(cap capabilities.Capability) bool {
