@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/hilather/go-lab-netconf/internal/audit"
 	"github.com/hilather/go-lab-netconf/internal/compiler"
 	"github.com/hilather/go-lab-netconf/internal/config"
 	"github.com/hilather/go-lab-netconf/internal/datastore"
@@ -20,6 +21,7 @@ type Options struct {
 	BootstrapPath  string
 	Sink           notif.Sink
 	Waiter         notif.Waiter
+	Audit          *audit.Fanout
 	IdempotencyMax int
 }
 
@@ -30,7 +32,10 @@ type App struct {
 	bootstrapPath string
 	sink          notif.Sink
 	waiter        notif.Waiter
+	audit         *audit.Fanout
 	idemp         *idempCache
+	resetHooks    []func()
+	applyHooks    []func()
 
 	profileHandles map[string]datastore.Handle
 	userHandles    map[string]datastore.Handle
@@ -61,11 +66,15 @@ func New(opts Options) *App {
 	if idempMax <= 0 {
 		idempMax = defaultIdempotencyMax
 	}
+	if opts.Audit == nil {
+		opts.Audit = audit.NewFanout(0, nil)
+	}
 	a := &App{
 		snaps:          opts.Snapshots,
 		bootstrapPath:  opts.BootstrapPath,
 		sink:           sink,
 		waiter:         waiter,
+		audit:          opts.Audit,
 		idemp:          newIdempCache(idempMax),
 		profileHandles: map[string]datastore.Handle{},
 		userHandles:    map[string]datastore.Handle{},
@@ -136,6 +145,26 @@ func (s *App) UserDatastore(user string) (datastore.Handle, bool) {
 	defer s.mu.Unlock()
 	h, ok := s.userHandles[user]
 	return h, ok
+}
+
+// OnReset registers a hook fired after a successful Reset (outside the mutex).
+func (s *App) OnReset(fn func()) {
+	if s == nil || fn == nil {
+		return
+	}
+	s.mu.Lock()
+	s.resetHooks = append(s.resetHooks, fn)
+	s.mu.Unlock()
+}
+
+// OnApply registers a hook fired after a successful Apply (outside the mutex).
+func (s *App) OnApply(fn func()) {
+	if s == nil || fn == nil {
+		return
+	}
+	s.mu.Lock()
+	s.applyHooks = append(s.applyHooks, fn)
+	s.mu.Unlock()
 }
 
 func (s *App) requireCtx(ctx context.Context) error {

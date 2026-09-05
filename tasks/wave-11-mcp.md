@@ -1,6 +1,6 @@
 # MCP-001 — MCP + parity
 
-Status: not-started
+Status: done
 Depends: API-001, SEC-001
 Owns: internal/control/mcp
 

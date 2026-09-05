@@ -466,7 +466,14 @@ func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request, instance st
 	}
 	events := make([]auditJSON, 0, len(list))
 	for _, e := range list {
-		events = append(events, auditJSON{ID: e.ID})
+		events = append(events, auditJSON{
+			ID:         e.ID,
+			Time:       rfc3339(e.Time),
+			ActorID:    e.ActorID,
+			Capability: e.Capability,
+			Result:     e.Result,
+			ErrorCode:  e.ErrorCode,
+		})
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"events": events})
 	_ = r

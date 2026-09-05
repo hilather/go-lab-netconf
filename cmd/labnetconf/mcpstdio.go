@@ -10,11 +10,12 @@ import (
 	"strings"
 
 	"github.com/hilather/go-lab-netconf/internal/app"
-	"github.com/hilather/go-lab-netconf/internal/config"
+	"github.com/hilather/go-lab-netconf/internal/auth"
 	"github.com/hilather/go-lab-netconf/internal/control/mcp"
 )
 
-func mcpStdioCmd(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+func mcpStdioCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	_ = stdout
 	fs := flag.NewFlagSet("mcp-stdio", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	path := fs.String("config", "", "path to bootstrap YAML or JSON")
@@ -30,27 +31,51 @@ func mcpStdioCmd(ctx context.Context, args []string, stdin io.Reader, stdout, st
 		_, _ = fmt.Fprintln(stderr, "labnetconf mcp-stdio: --token-file is required")
 		return 2
 	}
-	raw, err := os.ReadFile(*tokenFile)
-	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "labnetconf mcp-stdio: token-file: %v\n", err)
-		return 1
-	}
-	secret := firstSecretLine(raw)
-	if len(secret) < config.MinTokenBytes {
-		_, _ = fmt.Fprintf(stderr, "labnetconf mcp-stdio: token-file must be at least %d bytes\n", config.MinTokenBytes)
-		return 1
-	}
-	svc, err := app.Boot(ctx, app.Options{BootstrapPath: *path, Sink: productionSink()})
+	svc, err := app.Boot(ctx, app.Options{BootstrapPath: *path})
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "labnetconf mcp-stdio: load %s: %v\n", *path, err)
 		return 1
 	}
-	s, err := mcp.New(mcp.Config{Service: svc})
+	allowLegacy := false
+	var verifier *auth.Verifier
+	var fixed *app.Actor
+	if snap := svc.Active(); snap != nil && snap.Canonical != nil {
+		allowLegacy = snap.Canonical.Spec.Management.MCP.AllowLegacyClients
+		v, vErr := auth.FromSpec(snap.Canonical.Spec.Auth)
+		if vErr != nil {
+			_, _ = fmt.Fprintf(stderr, "labnetconf mcp-stdio: auth: %v\n", vErr)
+			return 1
+		}
+		if err := v.RequireListen(); err != nil {
+			_, _ = fmt.Fprintf(stderr, "labnetconf mcp-stdio: %v\n", err)
+			return 1
+		}
+		verifier = v
+		raw, rErr := os.ReadFile(*tokenFile)
+		if rErr != nil {
+			_, _ = fmt.Fprintf(stderr, "labnetconf mcp-stdio: token-file: %v\n", rErr)
+			return 1
+		}
+		secret := firstSecretLine(raw)
+		p, aErr := verifier.AuthenticateBearer(secret)
+		if aErr != nil {
+			_, _ = fmt.Fprintf(stderr, "labnetconf mcp-stdio: token-file: %v\n", aErr)
+			return 1
+		}
+		a := app.Actor{ID: p.ID, Class: p.Class, Role: p.Role, Scopes: p.Scopes, Transport: "mcp"}
+		fixed = &a
+	}
+	s, err := mcp.New(mcp.Config{
+		Service:            svc,
+		AllowLegacyClients: allowLegacy,
+		Auth:               verifier,
+		FixedActor:         fixed,
+	})
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "labnetconf mcp-stdio: %v\n", err)
 		return 1
 	}
-	if err := s.RunStdio(ctx, stdin, stdout); err != nil && ctx.Err() == nil {
+	if err := s.RunStdio(ctx); err != nil && ctx.Err() == nil {
 		_, _ = fmt.Fprintf(stderr, "labnetconf mcp-stdio: %v\n", err)
 		return 1
 	}

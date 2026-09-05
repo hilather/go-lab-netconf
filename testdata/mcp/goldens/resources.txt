@@ -1,0 +1,5 @@
+labnetconf://schema/config
+labnetconf://state
+labnetconf://profiles/{name}
+labnetconf://datastores/{profile}/{store}
+labnetconf://notifications/{id}

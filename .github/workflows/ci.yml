@@ -1,9 +1,9 @@
 # LabNETCONF continuous integration.
 #
 # Required jobs: format, lint, unit, race, documentation, changelog,
-# security-scan, config-compat, fuzz-smoke, generated-file, container-test.
-# Do not mark a failing check optional. Do not add parity/web jobs until
-# those Make targets are real.
+# security-scan, config-compat, fuzz-smoke, generated-file, parity,
+# container-test. Do not mark a failing check optional. Do not add web
+# jobs until those Make targets are real.
 
 name: CI
 
@@ -155,6 +155,18 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
       - name: Verify generated contracts
         run: make verify-generated
+
+  parity:
+    name: parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: REST/MCP parity
+        run: make test-parity
 
   security-scan:
     name: security-scan

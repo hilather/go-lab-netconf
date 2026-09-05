@@ -1,2 +1,3 @@
-// Package mcp holds the MCP tool and resource contract.
+// Package mcp holds the generated MCP tool and resource contract
+// (api/mcp/v1.json).
 package mcp

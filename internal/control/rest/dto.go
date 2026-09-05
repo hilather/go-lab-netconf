@@ -108,7 +108,12 @@ type sessionJSON struct {
 }
 
 type auditJSON struct {
-	ID string `json:"id"`
+	ID         string `json:"id"`
+	Time       string `json:"time,omitempty"`
+	ActorID    string `json:"actorId,omitempty"`
+	Capability string `json:"capability,omitempty"`
+	Result     string `json:"result,omitempty"`
+	ErrorCode  string `json:"errorCode,omitempty"`
 }
 
 func fromVersion(info buildinfo.Info) versionResponse {

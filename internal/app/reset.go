@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 
+	"github.com/hilather/go-lab-netconf/internal/audit"
 	"github.com/hilather/go-lab-netconf/internal/compiler"
 	"github.com/hilather/go-lab-netconf/internal/config"
 	"github.com/hilather/go-lab-netconf/internal/datastore"
@@ -20,8 +21,18 @@ func (s *App) Reset(ctx context.Context) error {
 		return err
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	hooks, err := s.resetLocked(ctx)
+	s.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	for _, fn := range hooks {
+		fn()
+	}
+	return nil
+}
 
+func (s *App) resetLocked(ctx context.Context) ([]func(), error) {
 	prev := s.snaps.Load()
 	gen := model.Generation(0)
 	if prev != nil {
@@ -29,7 +40,7 @@ func (s *App) Reset(ctx context.Context) error {
 	}
 	next, err := s.loadBootstrapCandidate(gen)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	s.snaps.Swap(next)
 	s.snaps.SetBootstrap(next)
@@ -38,7 +49,13 @@ func (s *App) Reset(ctx context.Context) error {
 	if s.waiter != nil {
 		s.waiter.Wipe()
 	}
-	return nil
+	s.recordAudit(ctx, audit.Event{
+		Capability: "state.reset",
+		Previous:   revisionOf(prev),
+		Revision:   next.Revision,
+		Result:     audit.ResultOK,
+	})
+	return append([]func(){}, s.resetHooks...), nil
 }
 
 func (s *App) loadBootstrapCandidate(gen model.Generation) (*snapshot.Snapshot, error) {

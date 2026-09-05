@@ -1,2 +1,2 @@
-// Package auth verifies management bearer tokens and session/CSRF cookies.
+// Package auth is lab static bearer (SHA-256 digest compare) plus SPA cookie+CSRF.
 package auth

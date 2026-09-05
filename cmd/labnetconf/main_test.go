@@ -115,6 +115,29 @@ func TestMCPStdioRequiresFlags(t *testing.T) {
 	}
 }
 
+func TestMCPStdioRequiresTokenFile(t *testing.T) {
+	path := filepath.Join(repoRoot(t), "testdata/config/valid/defaults.yaml")
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"labnetconf", "mcp-stdio", "--config", path}, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("exit %d, want 2", code)
+	}
+	if !strings.Contains(stderr.String(), "--token-file is required") {
+		t.Fatalf("stderr %q missing token-file required", stderr.String())
+	}
+}
+
+func TestMCPStdioRequiresConfig(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"labnetconf", "mcp-stdio", "--token-file", "x"}, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("exit %d, want 2", code)
+	}
+	if !strings.Contains(stderr.String(), "--config is required") {
+		t.Fatalf("stderr %q missing config required", stderr.String())
+	}
+}
+
 func TestValidateAndCanonicalize(t *testing.T) {
 	path := filepath.Join(repoRoot(t), "testdata/config/valid/full.yaml")
 	var stdout, stderr bytes.Buffer

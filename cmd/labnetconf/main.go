@@ -41,7 +41,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	case "mcp-stdio":
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
-		return mcpStdioCmd(ctx, args[2:], stdin, stdout, stderr)
+		return mcpStdioCmd(ctx, args[2:], stdout, stderr)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown command: %s\n", args[1])
 		printUsage(stderr)

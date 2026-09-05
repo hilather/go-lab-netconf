@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/hilather/go-lab-netconf/internal/audit"
 	"github.com/hilather/go-lab-netconf/internal/datastore"
 	"github.com/hilather/go-lab-netconf/internal/domainerr"
 	"github.com/hilather/go-lab-netconf/internal/notif"
@@ -53,14 +54,19 @@ func (s *App) SetDatastore(ctx context.Context, profile, store string, overlay j
 	op := datastore.EditOp{Op: yangtree.OpMerge, Path: "", Value: tree}
 	switch name {
 	case datastore.Candidate:
-		return h.Edit(ctx, datastore.Candidate, op)
+		err = h.Edit(ctx, datastore.Candidate, op)
 	case datastore.Running:
-		return h.WriteRunningIfCandidateClean(ctx, op)
+		err = h.WriteRunningIfCandidateClean(ctx, op)
 	case datastore.Startup:
-		return setStartup(ctx, h, tree)
+		err = setStartup(ctx, h, tree)
 	default:
 		return domainerr.ValidationFailed("unknown datastore")
 	}
+	if err != nil {
+		return err
+	}
+	s.recordAudit(ctx, audit.Event{Capability: "datastore.set", Result: audit.ResultOK})
+	return nil
 }
 
 func (s *App) Commit(ctx context.Context, profile string) error {
@@ -73,7 +79,11 @@ func (s *App) Commit(ctx context.Context, profile string) error {
 	if err != nil {
 		return err
 	}
-	return h.Commit(ctx)
+	if err := h.Commit(ctx); err != nil {
+		return err
+	}
+	s.recordAudit(ctx, audit.Event{Capability: "datastore.commit", Result: audit.ResultOK})
+	return nil
 }
 
 func (s *App) Discard(ctx context.Context, profile string) error {
@@ -86,7 +96,11 @@ func (s *App) Discard(ctx context.Context, profile string) error {
 	if err != nil {
 		return err
 	}
-	return h.Discard(ctx)
+	if err := h.Discard(ctx); err != nil {
+		return err
+	}
+	s.recordAudit(ctx, audit.Event{Capability: "datastore.discard", Result: audit.ResultOK})
+	return nil
 }
 
 func (s *App) PreviewGet(ctx context.Context, user, path string) (json.RawMessage, error) {
@@ -165,7 +179,11 @@ func (s *App) ClearNotifications(ctx context.Context) error {
 	s.mu.Lock()
 	w := s.waiter
 	s.mu.Unlock()
-	return w.Clear(ctx)
+	if err := w.Clear(ctx); err != nil {
+		return err
+	}
+	s.recordAudit(ctx, audit.Event{Capability: "notifications.clear", Result: audit.ResultOK})
+	return nil
 }
 
 func (s *App) handleForProfile(name string) (datastore.Handle, error) {

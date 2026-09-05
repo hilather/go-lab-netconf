@@ -20,7 +20,7 @@ help:
 		'  vet                 go vet ./...' \
 		'  lint                go vet + golangci-lint $(GOLANGCI_LINT_VERSION)' \
 		'  build               go build -o bin/labnetconf ./cmd/labnetconf' \
-		'  generate            write api/capabilities, openapi, and errors JSON' \
+		'  generate            write api/capabilities, openapi, errors, and mcp JSON' \
 		'  verify-generated    fail if generate would change those files' \
 		'  test                go test ./...' \
 		'  test-race           go test -race ./...' \
@@ -74,8 +74,7 @@ security-scan:
 	$(GO) run $(GOVULNCHECK_MOD) ./...
 
 test-parity:
-	@echo 'test-parity: not implemented until MCP-001' >&2
-	@exit 1
+	$(GO) test ./internal/capabilities ./internal/control/rest ./internal/control/mcp -count=1
 
 test-config-compat:
 	$(GO) test ./internal/config -run TestConfigCompat -count=1
