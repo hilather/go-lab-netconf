@@ -19,3 +19,6 @@ When `spec.ui.enabled` is true and management is bound, `GET /`
 serves the operator SPA. Otherwise `GET /` is 404 problem+json.
 
 Cookie `labnetconf_session`. CSRF `X-LabNETCONF-CSRF`.
+`POST /v1/session` (bearer) issues the cookie; `GET /v1/session` returns
+CSRF for reload recovery; `DELETE /v1/session` clears it. These three
+bindings are REST-only (not MCP).

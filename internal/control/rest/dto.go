@@ -107,6 +107,19 @@ type sessionJSON struct {
 	Profile string `json:"profile"`
 }
 
+type sessionCreateJSON struct {
+	CSRF      string `json:"csrf"`
+	ExpiresAt string `json:"expiresAt"`
+}
+
+type sessionViewJSON struct {
+	ID        string   `json:"id"`
+	Role      string   `json:"role"`
+	Scopes    []string `json:"scopes"`
+	CSRF      string   `json:"csrf,omitempty"`
+	ExpiresAt string   `json:"expiresAt,omitempty"`
+}
+
 type auditJSON struct {
 	ID         string `json:"id"`
 	Time       string `json:"time,omitempty"`

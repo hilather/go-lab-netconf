@@ -34,6 +34,9 @@ Do not invent capability IDs, YANG compiler scope, or ports.
 4. KnownFields, camelCase, `spec.auth` bearer-only.
 5. Secrets file refs. Token ≥32. Host key file. User password/keys files.
 6. REST and MCP are adapters. Order CFG → APP → API → SEC → MCP.
+   Production files in `internal/control/rest` must not import
+   `internal/web`. `cmd/labnetconf` wires `rest.Config.UI` and
+   `UIEnabled` from the live snapshot. Tests in `rest` may import `web`.
 7. First-party framing/RPC. x/crypto/ssh only in netconfssh.
    No sysrepo/netopeer2/ConfD/OpenYuma/NSO.
 8. No full YANG compiler. No writable-running capability.

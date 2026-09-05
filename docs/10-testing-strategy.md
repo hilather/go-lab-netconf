@@ -16,6 +16,8 @@ Config matrix under testdata/config (`valid/defaults.yaml`,
 `valid/full.yaml`, `valid/split-horizon.yaml`,
 `valid/both-credentials.yaml`, omitted vs empty
 `allowClientCidrs`). REST contracts. MCP parity.
+`make web-test` (Vitest; no localStorage tokens). `ui.enabled: false`
+→ `GET /` is 404 problem+json.
 Fuzz ncframing. Container script on :1830 / :8303.
 Locks: KnownFields unknown fields, reserved-key reject,
 `tls.enabled: true` reject, `writableRunning: true` reject,

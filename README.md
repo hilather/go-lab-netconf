@@ -18,3 +18,8 @@ This is not a production NMS, not ConfD, and not netopeer2.
 
 Status: fail-closed `labnetconf.dev/v1alpha1` YAML loads via
 `labnetconf validate`. Start at `START-HERE.md` and `AGENTS.md`.
+
+When `spec.ui.enabled` is true and management is bound, `GET /` serves
+the operator SPA (cookie `labnetconf_session` + `X-LabNETCONF-CSRF`).
+Otherwise `GET /` is 404 problem+json. Local Vite: Node **22.14.0**,
+`make web-install`.

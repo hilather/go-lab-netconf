@@ -46,3 +46,15 @@
   Administrator has all scopes; reader has `netconf.read`. Mutations
   append to an in-process audit ring. Secret bytes stay out of GET
   state, the users list, info logs, and metric labels.
+- Operator SPA (`web/` + `internal/web` `go:embed`): React/TS + Vite
+  (Node **22.14.0**), login via bearer (`POST /v1/session`; no Basic),
+  HttpOnly `labnetconf_session` + in-memory `X-LabNETCONF-CSRF`. Pages
+  from docs/12: overview (listeners, sessions, revision, health),
+  state, profiles (tree + leaf edit helper), users (secret paths only),
+  datastores (running/candidate/startup + commit/discard), notification
+  inbox + wait, session list, plan/apply/reset, audit. REST only. No
+  localStorage tokens. No call-home or send-RPC-to-remote control.
+  `spec.ui.enabled: false` → `GET /` is 404 problem+json. `make
+  web-install web-test web-build web-embed` and CI job `web` are
+  required. Committed `internal/web/dist` so the scratch image has no
+  Node stage. Mira review is requested after this first UI lands.

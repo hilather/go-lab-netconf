@@ -19,4 +19,6 @@ go build -o bin/labnetconf ./cmd/labnetconf
   --netconf-listen=:1830 --restconf-listen=:8303 --management-listen=:8088
 ```
 
-`--management-listen` defaults off.
+`--management-listen` defaults off. `GET /` is 404 until
+`spec.ui.enabled: true`. Local Vite: Node 22.14.0, `make web-install`,
+`npm --prefix web run dev`.

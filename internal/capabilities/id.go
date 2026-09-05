@@ -7,6 +7,9 @@ type ID string
 const (
 	HealthLive         ID = "health.live"
 	HealthReady        ID = "health.ready"
+	SessionCreate      ID = "session.create"
+	SessionGet         ID = "session.get"
+	SessionDelete      ID = "session.delete"
 	VersionGet         ID = "version.get"
 	CapabilitiesGet    ID = "capabilities.get"
 	StatusGet          ID = "status.get"

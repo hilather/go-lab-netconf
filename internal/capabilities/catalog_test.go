@@ -92,6 +92,27 @@ func TestHealthRESTOnly(t *testing.T) {
 	}
 }
 
+func TestSessionRESTOnly(t *testing.T) {
+	for _, id := range []ID{SessionCreate, SessionGet, SessionDelete} {
+		c, ok := Lookup(id)
+		if !ok || !c.RESTOnly {
+			t.Fatalf("%s must be REST-only", id)
+		}
+		if c.MCP != nil {
+			t.Fatalf("%s must not declare MCP", id)
+		}
+	}
+	if _, ok := LookupREST("POST", "/v1/session"); !ok {
+		t.Fatal("session create")
+	}
+	if _, ok := LookupREST("GET", "/v1/session"); !ok {
+		t.Fatal("session get")
+	}
+	if _, ok := LookupREST("DELETE", "/v1/session"); !ok {
+		t.Fatal("session delete")
+	}
+}
+
 func TestFrozenResources(t *testing.T) {
 	want := []string{
 		"labnetconf://state",
