@@ -16,6 +16,7 @@ import (
 	"github.com/hilather/go-lab-netconf/internal/capabilities"
 	"github.com/hilather/go-lab-netconf/internal/config"
 	"github.com/hilather/go-lab-netconf/internal/domainerr"
+	"github.com/hilather/go-lab-netconf/internal/observability"
 )
 
 const (
@@ -50,6 +51,8 @@ type Config struct {
 	CookieSecure      bool
 	UI                http.Handler
 	UIEnabled         func() bool
+	Metrics           *observability.Registry
+	Logger            *observability.Logger
 }
 
 // Server is the stdlib net/http management listener.
@@ -61,6 +64,9 @@ type Server struct {
 	maxBody int64
 	timeout time.Duration
 	origins atomic.Pointer[[]string]
+
+	metrics *observability.Registry
+	logger  *observability.Logger
 
 	mu     sync.Mutex
 	http   *http.Server
@@ -99,6 +105,8 @@ func New(cfg Config) (*Server, error) {
 		routes:  compileRoutes(capabilities.All()),
 		maxBody: maxBody,
 		timeout: timeout,
+		metrics: cfg.Metrics,
+		logger:  cfg.Logger,
 		addr:    cfg.Addr,
 	}
 	s.storeOrigins(cfg.AllowedOrigins)
@@ -212,10 +220,17 @@ func (s *Server) Addr() string {
 }
 
 func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	sw := &statusWriter{ResponseWriter: w, code: http.StatusOK}
+	w = sw
 	reqID := requestID(r)
 	w.Header().Set(headerRequestID, reqID)
 	r.Header.Set(headerRequestID, reqID)
 	instance := requestURNPrefix + reqID
+	route := "unknown"
+	defer func() {
+		s.observeHTTP(route, sw.status(), start, reqID)
+	}()
 
 	ctx := r.Context()
 	var cancel context.CancelFunc
@@ -243,6 +258,7 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 
 	rt, params, pathOK, methodOK := matchRoute(s.routes, r.Method, r.URL.Path)
 	if pathOK {
+		route = rt.path
 		if !methodOK {
 			w.Header().Set(headerAllow, allowedMethods(s.routes, r.URL.Path))
 			s.writeProblem(w, r, instance, domainerr.ValidationFailed("method not allowed",
@@ -320,6 +336,36 @@ func (s *Server) allowedOrigins() []string {
 		return nil
 	}
 	return append([]string(nil), (*p)...)
+}
+
+func (s *Server) observeHTTP(route string, status int, start time.Time, reqID string) {
+	observability.ObserveHTTP(s.metrics, status, route)
+	if s.logger != nil {
+		s.logger.Log(observability.Record{
+			Event:      observability.EventHTTPRequest,
+			Component:  "rest",
+			RequestID:  reqID,
+			Result:     observability.HTTPCode(status),
+			DurationMS: float64(time.Since(start).Milliseconds()),
+		})
+	}
+}
+
+type statusWriter struct {
+	http.ResponseWriter
+	code int
+}
+
+func (w *statusWriter) WriteHeader(status int) {
+	w.code = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *statusWriter) status() int {
+	if w.code == 0 {
+		return http.StatusOK
+	}
+	return w.code
 }
 
 func isHealthCap(cap capabilities.Capability) bool {

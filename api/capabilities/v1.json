@@ -725,6 +725,25 @@
       "serviceMethods": [
         "QueryAudit"
       ]
+    },
+    {
+      "id": "metrics.get",
+      "title": "Metrics",
+      "version": "v1",
+      "description": "OpenMetrics scrape of the frozen docs/09 series. Not an MCP tool.",
+      "requiredScopes": [
+        "netconf.read"
+      ],
+      "mutating": false,
+      "idempotent": true,
+      "restOnly": true,
+      "rest": [
+        {
+          "method": "GET",
+          "path": "/v1/metrics"
+        }
+      ],
+      "mcp": null
     }
   ],
   "features": [

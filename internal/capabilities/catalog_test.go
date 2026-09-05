@@ -78,7 +78,7 @@ func TestParityRequiredRESTBindings(t *testing.T) {
 }
 
 func TestHealthRESTOnly(t *testing.T) {
-	for _, id := range []ID{HealthLive, HealthReady} {
+	for _, id := range []ID{HealthLive, HealthReady, MetricsGet} {
 		c, ok := Lookup(id)
 		if !ok || !c.RESTOnly {
 			t.Fatalf("%s must be REST-only", id)
@@ -89,6 +89,9 @@ func TestHealthRESTOnly(t *testing.T) {
 	}
 	if _, ok := LookupREST("GET", "/v1/health/ready"); !ok {
 		t.Fatal("health ready")
+	}
+	if _, ok := LookupREST("GET", "/v1/metrics"); !ok {
+		t.Fatal("metrics")
 	}
 }
 

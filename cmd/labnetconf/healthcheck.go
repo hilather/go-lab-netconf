@@ -8,10 +8,12 @@ import (
 	"time"
 )
 
+const defaultReadyURL = "http://127.0.0.1:8088/v1/health/ready"
+
 func healthcheckCmd(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("healthcheck", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	url := fs.String("url", "http://127.0.0.1:8088/v1/health/ready", "ready URL")
+	url := fs.String("url", defaultReadyURL, "ready URL")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}

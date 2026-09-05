@@ -10,6 +10,7 @@ import (
 	"github.com/hilather/go-lab-netconf/internal/datastore"
 	"github.com/hilather/go-lab-netconf/internal/domainerr"
 	"github.com/hilather/go-lab-netconf/internal/model"
+	"github.com/hilather/go-lab-netconf/internal/observability"
 	"github.com/hilather/go-lab-netconf/internal/snapshot"
 	"github.com/hilather/go-lab-netconf/internal/yangtree"
 )
@@ -22,6 +23,14 @@ func (s *App) Reset(ctx context.Context) error {
 	}
 	s.mu.Lock()
 	hooks, err := s.resetLocked(ctx)
+	result := "error"
+	if err == nil {
+		result = "ok"
+	}
+	s.observeApply(result)
+	if s.logger != nil {
+		s.logger.Log(observability.Record{Event: observability.EventStateReset, Component: "app", Result: result})
+	}
 	s.mu.Unlock()
 	if err != nil {
 		return err

@@ -33,6 +33,7 @@ const (
 	NotificationsClear ID = "notifications.clear"
 	PreviewGet         ID = "preview.get"
 	AuditQuery         ID = "audit.query"
+	MetricsGet         ID = "metrics.get"
 )
 
 // VersionTag is the capability schema version embedded on every row.

@@ -12,6 +12,7 @@ import (
 	"github.com/hilather/go-lab-netconf/internal/config"
 	"github.com/hilather/go-lab-netconf/internal/domainerr"
 	"github.com/hilather/go-lab-netconf/internal/model"
+	"github.com/hilather/go-lab-netconf/internal/observability"
 	"github.com/hilather/go-lab-netconf/internal/snapshot"
 )
 
@@ -43,6 +44,16 @@ func (s *App) Apply(ctx context.Context, ops []ApplyOp, expectedRev, idempotency
 	}
 	s.mu.Lock()
 	res, hooks, err := s.applyLocked(ctx, ops, expectedRev, idempotencyKey)
+	result := "error"
+	if err == nil {
+		result = "ok"
+	} else if de, ok := domainerr.As(err); ok && de.Code == domainerr.CodeRevisionMismatch {
+		result = "conflict"
+	}
+	s.observeApply(result)
+	if s.logger != nil {
+		s.logger.Log(observability.Record{Event: observability.EventStateApply, Component: "app", Result: result})
+	}
 	s.mu.Unlock()
 	if err != nil {
 		return ApplyResult{}, err

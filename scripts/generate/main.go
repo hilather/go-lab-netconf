@@ -1,5 +1,5 @@
 // Command generate writes api/capabilities/v1.json, api/openapi/v1.json,
-// api/errors/v1.json, and api/mcp/v1.json.
+// api/errors/v1.json, api/mcp/v1.json, and api/metrics/v1alpha1.json.
 package main
 
 import (
@@ -11,6 +11,7 @@ import (
 	"github.com/hilather/go-lab-netconf/internal/capabilities"
 	"github.com/hilather/go-lab-netconf/internal/control/mcp"
 	"github.com/hilather/go-lab-netconf/internal/control/rest"
+	"github.com/hilather/go-lab-netconf/internal/observability"
 )
 
 func main() {
@@ -61,11 +62,16 @@ func plannedFiles() ([]artifact, error) {
 	if err != nil {
 		return nil, fmt.Errorf("mcp: %w", err)
 	}
+	metrics, err := observability.RenderCatalog()
+	if err != nil {
+		return nil, fmt.Errorf("metrics: %w", err)
+	}
 	return []artifact{
 		{capabilities.ManifestRelPath, manifest},
 		{rest.OpenAPIRelPath, openapi},
 		{capabilities.ErrorCatalogRelPath, errorsDoc},
 		{mcp.ManifestRelPath, mcpManifest},
+		{observability.CatalogRelPath, metrics},
 	}, nil
 }
 

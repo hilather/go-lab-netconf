@@ -10,7 +10,64 @@ import (
 
 	"github.com/hilather/go-lab-netconf/internal/capabilities"
 	"github.com/hilather/go-lab-netconf/internal/domainerr"
+	"github.com/hilather/go-lab-netconf/internal/observability"
 )
+
+func TestMetricsFrozenNames(t *testing.T) {
+	reg := observability.NewRegistry()
+	svc := bootTestApp(t)
+	s, err := New(Config{Service: svc, Metrics: reg, Ready: func() bool { return true }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/v1/metrics", nil)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("metrics %d %s", w.Code, w.Body.String())
+	}
+	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "openmetrics") {
+		t.Fatalf("ct %s", ct)
+	}
+	body := w.Body.String()
+	for _, name := range observability.FrozenNames() {
+		if !strings.Contains(body, name) {
+			t.Errorf("missing %s", name)
+		}
+	}
+	if !strings.HasSuffix(body, "# EOF\n") {
+		t.Fatal(body)
+	}
+	v, ok := reg.Get(observability.MetricHTTPRequestsTotal, map[string]string{
+		"code":  "200",
+		"route": "/v1/metrics",
+	})
+	if !ok || v < 1 {
+		t.Fatalf("http counter %v %v", v, ok)
+	}
+}
+
+func TestReadyCallback(t *testing.T) {
+	svc := bootTestApp(t)
+	ready := false
+	s, err := New(Config{Service: svc, Ready: func() bool { return ready }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/v1/health/ready", nil)
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("not ready %d %s", w.Code, w.Body.String())
+	}
+	ready = true
+	req = httptest.NewRequest(http.MethodGet, "/v1/health/ready", nil)
+	w = httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("ready %d %s", w.Code, w.Body.String())
+	}
+}
 
 func TestHealthUnauthenticated(t *testing.T) {
 	s, _ := newTestServer(t)

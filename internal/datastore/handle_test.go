@@ -36,6 +36,28 @@ func TestLockDenied(t *testing.T) {
 	if _, held := h.Locked(Candidate); held {
 		t.Fatal("still locked")
 	}
+	if LockCount(h) != 0 {
+		t.Fatalf("LockCount = %d", LockCount(h))
+	}
+}
+
+func TestLockCount(t *testing.T) {
+	h := newHandle(t, "router-a", "lab-rtr-a", nil)
+	if LockCount(h) != 0 {
+		t.Fatal("empty")
+	}
+	if err := h.Lock(context.Background(), Candidate, "sess-a"); err != nil {
+		t.Fatal(err)
+	}
+	if LockCount(h) != 1 {
+		t.Fatalf("LockCount = %d", LockCount(h))
+	}
+	if err := h.Lock(context.Background(), Running, "sess-a"); err != nil {
+		t.Fatal(err)
+	}
+	if LockCount(h) != 2 {
+		t.Fatalf("LockCount = %d", LockCount(h))
+	}
 }
 
 func TestLockHolderCanEditOthersCannot(t *testing.T) {

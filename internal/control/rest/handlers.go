@@ -13,6 +13,7 @@ import (
 	"github.com/hilather/go-lab-netconf/internal/capabilities"
 	"github.com/hilather/go-lab-netconf/internal/domainerr"
 	"github.com/hilather/go-lab-netconf/internal/notif"
+	"github.com/hilather/go-lab-netconf/internal/observability"
 )
 
 func (s *Server) dispatch(w http.ResponseWriter, r *http.Request, instance string, rt compiledRoute, params map[string]string) {
@@ -78,6 +79,8 @@ func (s *Server) dispatch(w http.ResponseWriter, r *http.Request, instance strin
 		s.handlePreview(w, r, instance, ctx)
 	case capabilities.AuditQuery:
 		s.handleAudit(w, r, instance, ctx)
+	case capabilities.MetricsGet:
+		s.handleMetrics(w, r)
 	default:
 		s.writeProblem(w, r, instance, domainerr.NotFound("not found"))
 	}
@@ -477,4 +480,9 @@ func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request, instance st
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"events": events})
 	_ = r
+}
+
+func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	observability.Handler(s.metrics).ServeHTTP(w, r)
 }

@@ -118,7 +118,7 @@ func TestMCPStdioRequiresFlags(t *testing.T) {
 func TestMCPStdioRequiresTokenFile(t *testing.T) {
 	path := filepath.Join(repoRoot(t), "testdata/config/valid/defaults.yaml")
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"labnetconf", "mcp-stdio", "--config", path}, &stdout, &stderr)
+	code := run([]string{"labnetconf", "mcp-stdio", "--config", path}, nil, &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit %d, want 2", code)
 	}
@@ -129,7 +129,7 @@ func TestMCPStdioRequiresTokenFile(t *testing.T) {
 
 func TestMCPStdioRequiresConfig(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"labnetconf", "mcp-stdio", "--token-file", "x"}, &stdout, &stderr)
+	code := run([]string{"labnetconf", "mcp-stdio", "--token-file", "x"}, nil, &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit %d, want 2", code)
 	}

@@ -7,6 +7,7 @@ import (
 	"github.com/hilather/go-lab-netconf/internal/datastore"
 	"github.com/hilather/go-lab-netconf/internal/domainerr"
 	"github.com/hilather/go-lab-netconf/internal/model"
+	"github.com/hilather/go-lab-netconf/internal/observability"
 	"github.com/hilather/go-lab-netconf/internal/yangtree"
 )
 
@@ -82,6 +83,49 @@ func TestRevisionMismatch(t *testing.T) {
 	}
 	if hostname(t, svc, "router-a", "running") != "lab-rtr-a" {
 		t.Fatal("mismatch must not mutate running")
+	}
+}
+
+func TestApplyAndResetMetrics(t *testing.T) {
+	reg := observability.NewRegistry()
+	path := copyFixture(t, "defaults.yaml")
+	svc, err := Boot(context.Background(), Options{BootstrapPath: path, Metrics: reg})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snap := svc.Active()
+	_, err = svc.Apply(context.Background(), []ApplyOp{{
+		Op:        OpReplaceAdmission,
+		Admission: &model.AdmissionSpec{AllowClientCidrs: []string{"10.99.42.0/24"}},
+	}}, string(snap.Revision), "k-metrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ok, found := reg.Get(observability.MetricApplyTotal, map[string]string{"result": "ok"})
+	if !found || ok < 1 {
+		t.Fatalf("apply ok %v %v", ok, found)
+	}
+	_, err = svc.Apply(context.Background(), []ApplyOp{{
+		Op:        OpReplaceAdmission,
+		Admission: &model.AdmissionSpec{AllowClientCidrs: []string{"10.0.0.0/8"}},
+	}}, "sha256:deadbeef", "k-conflict")
+	if err == nil {
+		t.Fatal("expected conflict")
+	}
+	conflict, found := reg.Get(observability.MetricApplyTotal, map[string]string{"result": "conflict"})
+	if !found || conflict < 1 {
+		t.Fatalf("apply conflict %v %v", conflict, found)
+	}
+	if err := svc.Reset(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	ok, found = reg.Get(observability.MetricApplyTotal, map[string]string{"result": "ok"})
+	if !found || ok < 2 {
+		t.Fatalf("reset apply ok %v %v", ok, found)
+	}
+	locks, _ := reg.Get(observability.MetricLocks, nil)
+	if locks != 0 {
+		t.Fatalf("locks %v", locks)
 	}
 }
 

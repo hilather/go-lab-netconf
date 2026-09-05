@@ -10,6 +10,7 @@ import (
 	"github.com/hilather/go-lab-netconf/internal/datastore"
 	"github.com/hilather/go-lab-netconf/internal/model"
 	"github.com/hilather/go-lab-netconf/internal/notif"
+	"github.com/hilather/go-lab-netconf/internal/observability"
 )
 
 // User binds an authenticated SSH/RESTCONF name to one profile-instance.
@@ -29,6 +30,7 @@ type Config struct {
 	// HandleFor, if set, supplies the live datastore at session start so
 	// reset-rebuilt handles are used instead of the constructor snapshot.
 	HandleFor func(username string) (datastore.Handle, bool)
+	Metrics   *observability.Registry
 }
 
 // SessionInfo is one row of the live session table.
@@ -44,6 +46,7 @@ type Server struct {
 	users     map[string]User
 	sink      notif.Sink
 	handleFor func(username string) (datastore.Handle, bool)
+	metrics   *observability.Registry
 	nextID    atomic.Uint64
 
 	mu       sync.Mutex
@@ -63,6 +66,7 @@ func New(cfg Config) *Server {
 		users:     users,
 		sink:      cfg.Sink,
 		handleFor: cfg.HandleFor,
+		metrics:   cfg.Metrics,
 		sessions:  map[string]*session{},
 	}
 }
@@ -98,6 +102,7 @@ func (s *Server) Serve(ctx context.Context, username, remoteAddr string, rw io.R
 	}
 	s.mu.Lock()
 	s.sessions[id] = sess
+	s.publishSessionsLocked()
 	s.mu.Unlock()
 	defer func() {
 		cancel()
@@ -144,7 +149,16 @@ func (s *Server) Kill(id string) error {
 func (s *Server) drop(id string) {
 	s.mu.Lock()
 	delete(s.sessions, id)
+	s.publishSessionsLocked()
 	s.mu.Unlock()
+}
+
+func (s *Server) publishSessionsLocked() {
+	observability.SetSessions(s.metrics, len(s.sessions))
+}
+
+func (s *Server) observeRPC(name string, ok bool) {
+	observability.ObserveRPC(s.metrics, name, observability.RPCDecision(ok))
 }
 
 func (s *session) dropLocks() {

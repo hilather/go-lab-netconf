@@ -6,6 +6,7 @@ import (
 	"github.com/hilather/go-lab-netconf/internal/capabilities"
 	"github.com/hilather/go-lab-netconf/internal/control/mcp"
 	"github.com/hilather/go-lab-netconf/internal/control/rest"
+	"github.com/hilather/go-lab-netconf/internal/observability"
 )
 
 func TestPlannedFiles(t *testing.T) {
@@ -17,7 +18,8 @@ func TestPlannedFiles(t *testing.T) {
 		capabilities.ManifestRelPath:     false,
 		rest.OpenAPIRelPath:              false,
 		capabilities.ErrorCatalogRelPath: false,
-		mcp.ManifestRelPath:              false,
+		mcp.ManifestRelPath:          false,
+		observability.CatalogRelPath: false,
 	}
 	for _, f := range files {
 		if _, ok := want[f.rel]; !ok {
