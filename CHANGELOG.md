@@ -39,6 +39,12 @@
   Admission omitted CIDRs default to loopback; an empty list is
   deny-all. `create-subscription` succeeds and does not write
   notification messages on the session.
+- RFC 8040 JSON RESTCONF listener (`internal/restconf`) on a dedicated
+  HTTP port (default `:8303`), not the management mux. Basic auth
+  against `spec.users`; management bearer is rejected. Writes call
+  `WriteRunningIfCandidateClean` (409 `candidate_dirty` if candidate
+  is dirty or locked). Omitted admission CIDRs default to loopback;
+  an empty list is deny-all. JSON `application/yang-data+json` only.
 - Snapshot compiler (`internal/compiler`, `internal/snapshot`) and
   plan/apply/reset (`internal/app`). Closed apply ops from docs/04
   require `expectedRevision` and `Idempotency-Key`. Reset rereads

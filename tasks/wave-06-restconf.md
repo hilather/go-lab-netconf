@@ -1,6 +1,6 @@
 # RC-001 — RESTCONF listener
 
-Status: not-started
+Status: complete
 Depends: TREE-001
 Owns: internal/restconf
 
