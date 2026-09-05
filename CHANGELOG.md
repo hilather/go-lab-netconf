@@ -92,6 +92,18 @@
   `--management-listen=:8088`. `make test-container` smokes
   `:1830`/`:8303` with `cap_drop ALL`. `examples/compose.smoke.yaml`
   uses the testdata lab host key.
+- Operator SPA (`web/` + `internal/web` `go:embed`): React/TS + Vite
+  (Node **22.14.0**), login via bearer (`POST /v1/session`; no Basic),
+  HttpOnly `labnetconf_session` + in-memory `X-LabNETCONF-CSRF`. Pages
+  from docs/12: overview (listeners, sessions, revision, health),
+  state, profiles (tree + leaf edit helper), users (secret paths only),
+  datastores (running/candidate/startup + commit/discard), notification
+  inbox + wait, session list, plan/apply/reset, audit. REST only. No
+  localStorage tokens. No call-home or send-RPC-to-remote control.
+  `spec.ui.enabled: false` → `GET /` is 404 problem+json. `make
+  web-install web-test web-build web-embed` and CI job `web` are
+  required. Committed `internal/web/dist` so the scratch image has no
+  Node stage. Mira review is requested after this first UI lands.
 - Integrator BOM under `examples/` (`labnetconf.yaml`, Jungle
   `labnetconf.json`, labinfo snippet with `urls` + `connection`,
   `profile.env` 10830/18303/18830) matching `docs/13`. Vendor pin

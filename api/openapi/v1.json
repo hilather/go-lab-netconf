@@ -217,6 +217,32 @@
         ]
       }
     },
+    "/v1/session": {
+      "delete": {
+        "description": "Clear the operator UI session cookie. Not an MCP tool.",
+        "operationId": "session.delete",
+        "summary": "Delete session",
+        "tags": [
+          "session.delete"
+        ]
+      },
+      "get": {
+        "description": "Current session principal (cookie or bearer). Cookie path returns CSRF for reload recovery. Not an MCP tool.",
+        "operationId": "session.get",
+        "summary": "Get session",
+        "tags": [
+          "session.get"
+        ]
+      },
+      "post": {
+        "description": "Cookie + CSRF session for the operator UI. Accepts bearer. Not an MCP tool.",
+        "operationId": "session.create",
+        "summary": "Create session",
+        "tags": [
+          "session.create"
+        ]
+      }
+    },
     "/v1/sessions": {
       "get": {
         "description": "NETCONF SSH and RESTCONF HTTP sessions.",

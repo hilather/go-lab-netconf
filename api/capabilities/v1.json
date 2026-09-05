@@ -35,6 +35,54 @@
       "mcp": null
     },
     {
+      "id": "session.create",
+      "title": "Create session",
+      "version": "v1",
+      "description": "Cookie + CSRF session for the operator UI. Accepts bearer. Not an MCP tool.",
+      "mutating": true,
+      "idempotent": false,
+      "restOnly": true,
+      "rest": [
+        {
+          "method": "POST",
+          "path": "/v1/session"
+        }
+      ],
+      "mcp": null
+    },
+    {
+      "id": "session.get",
+      "title": "Get session",
+      "version": "v1",
+      "description": "Current session principal (cookie or bearer). Cookie path returns CSRF for reload recovery. Not an MCP tool.",
+      "mutating": false,
+      "idempotent": true,
+      "restOnly": true,
+      "rest": [
+        {
+          "method": "GET",
+          "path": "/v1/session"
+        }
+      ],
+      "mcp": null
+    },
+    {
+      "id": "session.delete",
+      "title": "Delete session",
+      "version": "v1",
+      "description": "Clear the operator UI session cookie. Not an MCP tool.",
+      "mutating": true,
+      "idempotent": true,
+      "restOnly": true,
+      "rest": [
+        {
+          "method": "DELETE",
+          "path": "/v1/session"
+        }
+      ],
+      "mcp": null
+    },
+    {
       "id": "version.get",
       "title": "Version",
       "version": "v1",

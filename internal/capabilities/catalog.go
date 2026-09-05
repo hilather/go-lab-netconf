@@ -1,8 +1,8 @@
 package capabilities
 
 // TableRowCount is the number of frozen REST↔MCP catalog rows
-// (REST_ONLY health and metrics plus every PARITY_REQUIRED row).
-const TableRowCount = 29
+// (REST_ONLY health, session, and metrics plus every PARITY_REQUIRED row).
+const TableRowCount = 32
 
 func catalog() []Capability {
 	return []Capability{
@@ -17,6 +17,24 @@ func catalog() []Capability {
 			Description: "Snapshot loaded and enabled listeners bound, or management off. Not an MCP tool.",
 			Idempotent:  true, RESTOnly: true,
 			REST: []RESTBinding{{Method: "GET", Path: "/v1/health/ready"}},
+		},
+		{
+			ID: SessionCreate, Title: "Create session", Version: VersionTag,
+			Description: "Cookie + CSRF session for the operator UI. Accepts bearer. Not an MCP tool.",
+			Idempotent:  false, RESTOnly: true, Mutating: true,
+			REST: []RESTBinding{{Method: "POST", Path: "/v1/session"}},
+		},
+		{
+			ID: SessionGet, Title: "Get session", Version: VersionTag,
+			Description: "Current session principal (cookie or bearer). Cookie path returns CSRF for reload recovery. Not an MCP tool.",
+			Idempotent:  true, RESTOnly: true,
+			REST: []RESTBinding{{Method: "GET", Path: "/v1/session"}},
+		},
+		{
+			ID: SessionDelete, Title: "Delete session", Version: VersionTag,
+			Description: "Clear the operator UI session cookie. Not an MCP tool.",
+			Idempotent:  true, RESTOnly: true, Mutating: true,
+			REST: []RESTBinding{{Method: "DELETE", Path: "/v1/session"}},
 		},
 		{
 			ID: VersionGet, Title: "Version", Version: VersionTag,

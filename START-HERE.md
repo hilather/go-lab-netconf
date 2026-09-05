@@ -16,3 +16,5 @@ go build -o bin/labnetconf ./cmd/labnetconf
 
 `--management-listen` defaults off. Appliance smoke image:
 `examples/compose.smoke.yaml` (`cap_drop: ALL`, testdata lab host key).
+`GET /` is 404 until `spec.ui.enabled: true`. Local Vite: Node 22.14.0,
+`make web-install`, `npm --prefix web run dev`.

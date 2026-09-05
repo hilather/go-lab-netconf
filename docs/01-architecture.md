@@ -72,7 +72,7 @@ Canonical Go packages are `internal/ncframing` + `internal/ncrpc`
 ## Import fence
 
 - framing/rpc/ssh/yangtree/datastore/ncserver/restconf/notif must not import control/web
-- production rest must not import web
+- production rest must not import web (`cmd/labnetconf` wires `rest.Config.UI`)
 - forbidden wrap: sysrepo, netopeer2, confd, openyuma, nso, freeconf-as-server
 - `golang.org/x/crypto/ssh` only in `internal/netconfssh`
 - no Dial; no exec `netopeer2-server`, `sysrepod`, `confd`

@@ -27,6 +27,12 @@ func (s *Server) dispatch(w http.ResponseWriter, r *http.Request, instance strin
 		s.handleHealthLive(w, r)
 	case capabilities.HealthReady:
 		s.handleHealthReady(w, r, ctx)
+	case capabilities.SessionCreate:
+		s.handleSessionCreate(w, r, instance, app.ActorFrom(ctx))
+	case capabilities.SessionGet:
+		s.handleSessionGet(w, r, instance, app.ActorFrom(ctx))
+	case capabilities.SessionDelete:
+		s.handleSessionDelete(w, r, instance, app.ActorFrom(ctx))
 	case capabilities.VersionGet:
 		s.writeJSON(w, http.StatusOK, fromVersion(buildinfo.Current()))
 	case capabilities.CapabilitiesGet:
