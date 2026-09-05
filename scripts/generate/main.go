@@ -1,5 +1,5 @@
 // Command generate writes api/capabilities/v1.json, api/openapi/v1.json,
-// and api/errors/v1.json.
+// api/errors/v1.json, and api/mcp/v1.json.
 package main
 
 import (
@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/hilather/go-lab-netconf/internal/capabilities"
+	"github.com/hilather/go-lab-netconf/internal/control/mcp"
 	"github.com/hilather/go-lab-netconf/internal/control/rest"
 )
 
@@ -56,10 +57,15 @@ func plannedFiles() ([]artifact, error) {
 	if err != nil {
 		return nil, fmt.Errorf("errors: %w", err)
 	}
+	mcpManifest, err := mcp.RenderManifest()
+	if err != nil {
+		return nil, fmt.Errorf("mcp: %w", err)
+	}
 	return []artifact{
 		{capabilities.ManifestRelPath, manifest},
 		{rest.OpenAPIRelPath, openapi},
 		{capabilities.ErrorCatalogRelPath, errorsDoc},
+		{mcp.ManifestRelPath, mcpManifest},
 	}, nil
 }
 

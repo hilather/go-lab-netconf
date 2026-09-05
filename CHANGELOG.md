@@ -46,3 +46,11 @@
   Administrator has all scopes; reader has `netconf.read`. Mutations
   append to an in-process audit ring. Secret bytes stay out of GET
   state, the users list, info logs, and metric labels.
+- MCP Streamable HTTP adapter (`internal/control/mcp`) over the shared
+  `app.Service`. Protocol `2026-07-28`, official SDK v1.7.0 only on
+  this adapter, `POST /mcp`, Bearer only, `allowLegacyClients` default
+  false. Every PARITY_REQUIRED `netconf_*` tool and `labnetconf://`
+  resource is registered. MCP does not HTTP-call REST.
+  `labnetconf mcp-stdio --config FILE --token-file FILE` requires
+  `--token-file`. `make test-parity` is a required CI job and fails
+  on a missing twin.

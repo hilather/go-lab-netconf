@@ -2,9 +2,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/hilather/go-lab-netconf/internal/buildinfo"
 )
@@ -29,8 +32,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return validateCmd(args[2:], stdout, stderr)
 	case "canonicalize":
 		return canonicalizeCmd(args[2:], stdout, stderr)
-	case "serve", "healthcheck", "mcp-stdio":
+	case "serve", "healthcheck":
 		return notImplemented(args[1], stderr)
+	case "mcp-stdio":
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return mcpStdioCmd(ctx, args[2:], stdout, stderr)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown command: %s\n", args[1])
 		printUsage(stderr)

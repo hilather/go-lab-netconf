@@ -80,7 +80,7 @@ func TestUnknownCommand(t *testing.T) {
 }
 
 func TestUnimplementedCommands(t *testing.T) {
-	for _, cmd := range []string{"serve", "healthcheck", "mcp-stdio"} {
+	for _, cmd := range []string{"serve", "healthcheck"} {
 		var stdout, stderr bytes.Buffer
 		code := run([]string{"labnetconf", cmd}, &stdout, &stderr)
 		if code != 1 {
@@ -89,6 +89,29 @@ func TestUnimplementedCommands(t *testing.T) {
 		if !strings.Contains(stderr.String(), "not implemented") {
 			t.Fatalf("%s stderr %q missing not implemented", cmd, stderr.String())
 		}
+	}
+}
+
+func TestMCPStdioRequiresTokenFile(t *testing.T) {
+	path := filepath.Join(repoRoot(t), "testdata/config/valid/defaults.yaml")
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"labnetconf", "mcp-stdio", "--config", path}, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("exit %d, want 2", code)
+	}
+	if !strings.Contains(stderr.String(), "--token-file is required") {
+		t.Fatalf("stderr %q missing token-file required", stderr.String())
+	}
+}
+
+func TestMCPStdioRequiresConfig(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"labnetconf", "mcp-stdio", "--token-file", "x"}, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("exit %d, want 2", code)
+	}
+	if !strings.Contains(stderr.String(), "--config is required") {
+		t.Fatalf("stderr %q missing config required", stderr.String())
 	}
 }
 
