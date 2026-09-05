@@ -60,11 +60,8 @@ func (s *App) Apply(ctx context.Context, ops []ApplyOp, expectedRev, idempotency
 		s.forgetIdempOnConflict(idempotencyKey, err)
 		return ApplyResult{}, err
 	}
-	rebuild := instanceIdentityChanged(cand.prev, cand.next)
 	s.snaps.Swap(cand.next)
-	if rebuild {
-		s.rebuildHandles(cand.next)
-	}
+	s.syncHandles(cand.prev, cand.next)
 	res := ApplyResult{
 		Plan:            s.planFrom(cand),
 		Applied:         true,
@@ -149,38 +146,6 @@ func (s *App) forgetIdempOnConflict(key string, err error) {
 		return
 	}
 	s.idemp.evict(key)
-}
-
-func instanceIdentityChanged(prev, next *snapshot.Snapshot) bool {
-	if prev == nil || next == nil {
-		return true
-	}
-	if prev.SharedProfileStore != next.SharedProfileStore {
-		return true
-	}
-	if len(prev.Profiles) != len(next.Profiles) || len(prev.Users) != len(next.Users) {
-		return true
-	}
-	for i := range prev.Profiles {
-		if prev.Profiles[i].Name != next.Profiles[i].Name {
-			return true
-		}
-		if !prev.Profiles[i].Running.Equal(next.Profiles[i].Running) {
-			return true
-		}
-		if prev.Profiles[i].Startup.IsZero() != next.Profiles[i].Startup.IsZero() {
-			return true
-		}
-		if !prev.Profiles[i].Startup.IsZero() && !prev.Profiles[i].Startup.Equal(next.Profiles[i].Startup) {
-			return true
-		}
-	}
-	for i := range prev.Users {
-		if prev.Users[i].Name != next.Users[i].Name || prev.Users[i].Profile != next.Users[i].Profile {
-			return true
-		}
-	}
-	return false
 }
 
 func cloneState(st *model.State) (*model.State, error) {

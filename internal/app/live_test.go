@@ -4,8 +4,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/hilather/go-lab-netconf/internal/datastore"
 	"github.com/hilather/go-lab-netconf/internal/domainerr"
 	"github.com/hilather/go-lab-netconf/internal/model"
+	"github.com/hilather/go-lab-netconf/internal/yangtree"
 )
 
 func TestLiveVsResetOnly(t *testing.T) {
@@ -128,4 +130,101 @@ func TestDatastoreSetIsNotApplyVerb(t *testing.T) {
 	requireCode(t, err, domainerr.CodeValidationFailed)
 	_, err = svc.Plan(context.Background(), []ApplyOp{{Op: "commit"}}, string(snap.Revision))
 	requireCode(t, err, domainerr.CodeValidationFailed)
+}
+
+func TestApplyUpsertUserKeepsCommittedHostname(t *testing.T) {
+	const committedHost = "after-commit"
+	svc, _ := mustBoot(t)
+	ctx := context.Background()
+	setHostname(t, svc, "router-a", "candidate", committedHost)
+	if err := svc.Commit(ctx, "router-a"); err != nil {
+		t.Fatal(err)
+	}
+	if got := hostname(t, svc, "router-a", datastore.Running); got != committedHost {
+		t.Fatalf("running after commit = %q, want %q", got, committedHost)
+	}
+	before, ok := svc.Datastore("router-a")
+	if !ok {
+		t.Fatal("missing profile handle")
+	}
+	_, err := svc.Apply(ctx, []ApplyOp{{
+		Op: OpUpsertUser,
+		User: &model.UserSpec{
+			Name:         "bob",
+			PasswordFile: "/run/secrets/netconf-bob",
+			Profile:      "router-a",
+			Access:       model.UserAccessReadWrite,
+		},
+	}}, string(svc.Active().Revision), "k-bob")
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, ok := svc.Datastore("router-a")
+	if !ok {
+		t.Fatal("missing profile handle after apply")
+	}
+	if before != after {
+		t.Fatal("upsertUser must keep router-a handle")
+	}
+	if got := hostname(t, svc, "router-a", datastore.Running); got != committedHost {
+		t.Fatalf("running hostname after upsertUser = %q, want %q", got, committedHost)
+	}
+	bob, ok := svc.UserDatastore("bob")
+	if !ok {
+		t.Fatal("bob handle")
+	}
+	n, err := bob.Get(ctx, datastore.Running, datastore.Subtree{Path: hostnamePath})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := n.Lookup(hostnamePath)
+	if !ok || got != "lab-rtr-a" {
+		t.Fatalf("bob running = %v, want lab-rtr-a", got)
+	}
+}
+
+func TestUpsertProfileSchemaRebuildsHandle(t *testing.T) {
+	svc, _ := mustBoot(t)
+	ctx := context.Background()
+	copied, err := cloneState(svc.Active().Canonical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var p model.ProfileSpec
+	for _, sp := range copied.Spec.Profiles {
+		if sp.Name == "router-a" {
+			p = sp
+			break
+		}
+	}
+	if p.Name == "" {
+		t.Fatal("router-a missing")
+	}
+	found := false
+	for i := range p.Schema {
+		if p.Schema[i].Path == hostnamePath {
+			p.Schema[i].Access = model.SchemaAccessRead
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("hostname schema missing")
+	}
+	_, err = svc.Apply(ctx, []ApplyOp{{Op: OpUpsertProfile, Profile: &p}}, string(svc.Active().Revision), "k-ro")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h, ok := svc.Datastore("router-a")
+	if !ok {
+		t.Fatal("missing profile handle")
+	}
+	err = h.Edit(ctx, datastore.Candidate, datastore.EditOp{
+		Op:    yangtree.OpMerge,
+		Path:  hostnamePath,
+		Value: "nope",
+	})
+	requireCode(t, err, domainerr.CodeNotWritable)
+	if hostname(t, svc, "router-a", datastore.Candidate) != "lab-rtr-a" {
+		t.Fatalf("read-only merge mutated candidate = %q", hostname(t, svc, "router-a", datastore.Candidate))
+	}
 }

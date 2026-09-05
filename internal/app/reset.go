@@ -77,20 +77,40 @@ func (s *App) loadBootstrapCandidate(gen model.Generation) (*snapshot.Snapshot, 
 }
 
 func (s *App) rebuildHandles(snap *snapshot.Snapshot) {
-	profiles := map[string]datastore.Handle{}
-	users := map[string]datastore.Handle{}
-	if snap == nil {
-		s.profileHandles = profiles
-		s.userHandles = users
+	s.profileHandles = map[string]datastore.Handle{}
+	s.userHandles = map[string]datastore.Handle{}
+	s.syncHandles(nil, snap)
+}
+
+// syncHandles keeps live datastore triples whose compiled profile identity
+// (instance, startup, schema) and user→profile binding did not change.
+func (s *App) syncHandles(prev, next *snapshot.Snapshot) {
+	if next == nil {
+		s.profileHandles = map[string]datastore.Handle{}
+		s.userHandles = map[string]datastore.Handle{}
 		return
 	}
-	sink := s.sink
-	shared := snap.SharedProfileStore
-	for _, p := range snap.Profiles {
-		profiles[p.Name] = datastore.New(p.Name, p.Running, yangtree.Node{}, p.Startup, sink)
+	if prev != nil && prev.SharedProfileStore != next.SharedProfileStore {
+		prev = nil
 	}
-	for _, u := range snap.Users {
-		p, ok := snap.ProfileNamed(u.Profile)
+	sink := s.sink
+	profiles := make(map[string]datastore.Handle, len(next.Profiles))
+	rebuilt := map[string]bool{}
+	for _, p := range next.Profiles {
+		if prev != nil && profileCompileEqual(prev, p) {
+			if h, ok := s.profileHandles[p.Name]; ok {
+				profiles[p.Name] = h
+				continue
+			}
+		}
+		profiles[p.Name] = datastore.New(p.Name, p.Running, yangtree.Node{}, p.Startup, sink)
+		rebuilt[p.Name] = true
+	}
+
+	users := make(map[string]datastore.Handle, len(next.Users))
+	shared := next.SharedProfileStore
+	for _, u := range next.Users {
+		p, ok := next.ProfileNamed(u.Profile)
 		if !ok {
 			continue
 		}
@@ -98,8 +118,50 @@ func (s *App) rebuildHandles(snap *snapshot.Snapshot) {
 			users[u.Name] = profiles[u.Profile]
 			continue
 		}
+		prevUser, hadPrev := snapshot.User{}, false
+		if prev != nil {
+			prevUser, hadPrev = prev.UserNamed(u.Name)
+		}
+		if hadPrev && prevUser.Profile == u.Profile && !rebuilt[u.Profile] {
+			if h, ok := s.userHandles[u.Name]; ok {
+				users[u.Name] = h
+				continue
+			}
+		}
 		users[u.Name] = datastore.New(p.Name, p.Running, yangtree.Node{}, p.Startup, sink)
 	}
 	s.profileHandles = profiles
 	s.userHandles = users
+}
+
+func profileCompileEqual(prev *snapshot.Snapshot, p snapshot.Profile) bool {
+	old, ok := prev.ProfileNamed(p.Name)
+	if !ok {
+		return false
+	}
+	if !schemaEqual(old.Schema, p.Schema) {
+		return false
+	}
+	if !old.Running.Equal(p.Running) {
+		return false
+	}
+	if old.Startup.IsZero() != p.Startup.IsZero() {
+		return false
+	}
+	if !old.Startup.IsZero() && !old.Startup.Equal(p.Startup) {
+		return false
+	}
+	return true
+}
+
+func schemaEqual(a, b []model.SchemaLeaf) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
