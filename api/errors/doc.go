@@ -1,2 +1,3 @@
-// Package errors holds the problem+json code catalog.
+// Package errors holds the generated problem+json code catalog
+// (api/errors/v1.json).
 package errors

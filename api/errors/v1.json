@@ -1,0 +1,102 @@
+{
+  "apiVersion": "labnetconf.dev/errors/v1",
+  "generatedBy": "scripts/generate; DO NOT EDIT.",
+  "errors": [
+    {
+      "code": "validation_failed",
+      "status": 400,
+      "retryable": false,
+      "title": "Validation failed"
+    },
+    {
+      "code": "unknown_field",
+      "status": 400,
+      "retryable": false,
+      "title": "Unknown field"
+    },
+    {
+      "code": "reserved_key",
+      "status": 400,
+      "retryable": false,
+      "title": "Reserved key"
+    },
+    {
+      "code": "immutable_field",
+      "status": 400,
+      "retryable": false,
+      "title": "Immutable field"
+    },
+    {
+      "code": "revision_mismatch",
+      "status": 409,
+      "retryable": true,
+      "title": "Revision mismatch"
+    },
+    {
+      "code": "not_found",
+      "status": 404,
+      "retryable": false,
+      "title": "Not Found"
+    },
+    {
+      "code": "lock_denied",
+      "status": 409,
+      "retryable": true,
+      "title": "Lock denied"
+    },
+    {
+      "code": "not_writable",
+      "status": 403,
+      "retryable": false,
+      "title": "Not writable"
+    },
+    {
+      "code": "wait_timeout",
+      "status": 504,
+      "retryable": true,
+      "title": "Wait timeout"
+    },
+    {
+      "code": "store_wiped",
+      "status": 409,
+      "retryable": false,
+      "title": "Store wiped"
+    },
+    {
+      "code": "unauthorized",
+      "status": 401,
+      "retryable": false,
+      "title": "Unauthorized"
+    },
+    {
+      "code": "forbidden",
+      "status": 403,
+      "retryable": false,
+      "title": "Forbidden"
+    },
+    {
+      "code": "origin_not_allowed",
+      "status": 403,
+      "retryable": false,
+      "title": "Origin not allowed"
+    },
+    {
+      "code": "tls_unsupported",
+      "status": 400,
+      "retryable": false,
+      "title": "TLS unsupported"
+    },
+    {
+      "code": "callhome_unsupported",
+      "status": 400,
+      "retryable": false,
+      "title": "Call-home unsupported"
+    },
+    {
+      "code": "candidate_dirty",
+      "status": 409,
+      "retryable": true,
+      "title": "Candidate dirty"
+    }
+  ]
+}

@@ -327,7 +327,7 @@ func diffWalk(p Path, a, b any, out *[]Change) {
 		add := func(item any, fromA bool) {
 			m, ok := asMap(item)
 			keys := keysForItem(m)
-			id := p.String()
+			var id string
 			if ok && len(keys) > 0 {
 				tmp := p
 				if len(tmp.Segments) > 0 {

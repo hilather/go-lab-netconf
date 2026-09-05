@@ -20,8 +20,8 @@ help:
 		'  vet                 go vet ./...' \
 		'  lint                go vet + golangci-lint $(GOLANGCI_LINT_VERSION)' \
 		'  build               go build -o bin/labnetconf ./cmd/labnetconf' \
-		'  generate            write api/capabilities, openapi, mcp, metrics JSON (CFG+/API-001)' \
-		'  verify-generated    fail if generate would change those files (API-001)' \
+		'  generate            write api/capabilities, openapi, and errors JSON' \
+		'  verify-generated    fail if generate would change those files' \
 		'  test                go test ./...' \
 		'  test-race           go test -race ./...' \
 		'  test-fuzz-smoke     ncframing fuzz corpora (WIRE-001)' \
@@ -51,12 +51,10 @@ build:
 	$(GO) build -o bin/labnetconf ./cmd/labnetconf
 
 generate:
-	@echo 'generate: not implemented until API-001' >&2
-	@exit 1
+	$(GO) run ./scripts/generate
 
 verify-generated:
-	@echo 'verify-generated: not implemented until API-001' >&2
-	@exit 1
+	$(GO) run ./scripts/generate -check
 
 test:
 	$(GO) test ./...

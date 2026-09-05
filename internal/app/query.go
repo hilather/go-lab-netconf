@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/hilather/go-lab-netconf/internal/buildinfo"
+	"github.com/hilather/go-lab-netconf/internal/capabilities"
 	"github.com/hilather/go-lab-netconf/internal/config"
 	"github.com/hilather/go-lab-netconf/internal/domainerr"
 	"github.com/hilather/go-lab-netconf/internal/model"
@@ -21,7 +22,12 @@ func (s *App) Capabilities(ctx context.Context) ([]Capability, error) {
 	if err := s.requireCtx(ctx); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	src := capabilities.DiscoveryList()
+	out := make([]Capability, 0, len(src))
+	for _, d := range src {
+		out = append(out, Capability{Name: d.Name})
+	}
+	return out, nil
 }
 
 func (s *App) Status(ctx context.Context) (Status, error) {

@@ -86,7 +86,7 @@ func (n *Node) put(p Path, value any, merge bool) error {
 	}
 	cur := n.moduleCursor(p.Module, true)
 	if len(p.Segments) == 0 {
-		next := value
+		var next any
 		if merge {
 			next = mergeValues(cur.get(), value)
 		} else {
@@ -115,7 +115,7 @@ func (n *Node) applyLast(parent cursor, p Path, value any, merge bool) error {
 		if err != nil {
 			return err
 		}
-		next := value
+		var next any
 		if merge {
 			next = mergeValues(entryCur.get(), value)
 		} else {
@@ -140,7 +140,7 @@ func (n *Node) applyLast(parent cursor, p Path, value any, merge bool) error {
 		m = map[string]any{}
 		parent.set(m)
 	}
-	next := value
+	var next any
 	if merge {
 		next = mergeValues(m[seg.Name], value)
 	} else {

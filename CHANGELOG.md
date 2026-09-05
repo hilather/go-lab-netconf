@@ -32,3 +32,10 @@
   wipes notifications; the process never writes the bootstrap file.
   `datastore:set` / commit / discard are Service methods, not apply
   verbs.
+- Management REST `/v1` adapter (`internal/control/rest`) over the
+  shared capability registry. Every PARITY_REQUIRED row plus
+  unauthenticated health live/ready; `application/problem+json`
+  including `candidate_dirty`. `GET /` is 404 problem+json. `/restconf`
+  is not mounted on management. `make generate` / `verify-generated`
+  write and check `api/capabilities/v1.json`, `api/openapi/v1.json`,
+  and `api/errors/v1.json`.

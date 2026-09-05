@@ -1,0 +1,312 @@
+{
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "description": "REST adapter for the shared LabNETCONF capability registry. Generated from internal/capabilities. Do not edit by hand.",
+    "title": "LabNETCONF Management API",
+    "version": "v1",
+    "x-generated-by": "internal/control/rest.RenderOpenAPI; DO NOT EDIT."
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/audit": {
+      "get": {
+        "description": "Recent in-memory mutation events.",
+        "operationId": "audit.query",
+        "summary": "Audit query",
+        "tags": [
+          "audit.query"
+        ]
+      }
+    },
+    "/v1/capabilities": {
+      "get": {
+        "description": "Capability list and protocol metadata.",
+        "operationId": "capabilities.get",
+        "summary": "Capabilities",
+        "tags": [
+          "capabilities.get"
+        ]
+      }
+    },
+    "/v1/changes:apply": {
+      "post": {
+        "description": "Apply operations. expectedRevision and Idempotency-Key are required.",
+        "operationId": "changes.apply",
+        "summary": "Apply",
+        "tags": [
+          "changes.apply"
+        ]
+      }
+    },
+    "/v1/changes:plan": {
+      "post": {
+        "description": "Dry-run operations against the active snapshot.",
+        "operationId": "changes.plan",
+        "summary": "Plan",
+        "tags": [
+          "changes.plan"
+        ]
+      }
+    },
+    "/v1/datastores/{profile}/{store}": {
+      "get": {
+        "description": "Instance tree JSON for a profile store (running, candidate, or startup).",
+        "operationId": "datastore.get",
+        "summary": "Get datastore",
+        "tags": [
+          "datastore.get"
+        ]
+      }
+    },
+    "/v1/datastores/{profile}/{store}:set": {
+      "post": {
+        "description": "Overlay/tree write on a profile store. Tester helper; same engine as edit-config.",
+        "operationId": "datastore.set",
+        "summary": "Set datastore",
+        "tags": [
+          "datastore.set"
+        ]
+      }
+    },
+    "/v1/datastores/{profile}:commit": {
+      "post": {
+        "description": "Publish candidate to running for a profile.",
+        "operationId": "datastore.commit",
+        "summary": "Commit",
+        "tags": [
+          "datastore.commit"
+        ]
+      }
+    },
+    "/v1/datastores/{profile}:discard": {
+      "post": {
+        "description": "Restore candidate from running for a profile.",
+        "operationId": "datastore.discard",
+        "summary": "Discard",
+        "tags": [
+          "datastore.discard"
+        ]
+      }
+    },
+    "/v1/features": {
+      "get": {
+        "description": "Frozen live vs reset-only catalog.",
+        "operationId": "features.list",
+        "summary": "Features",
+        "tags": [
+          "features.list"
+        ]
+      }
+    },
+    "/v1/health/live": {
+      "get": {
+        "description": "Process liveness. Not an MCP tool.",
+        "operationId": "health.live",
+        "security": [],
+        "summary": "Health live",
+        "tags": [
+          "health.live"
+        ]
+      }
+    },
+    "/v1/health/ready": {
+      "get": {
+        "description": "Snapshot loaded and enabled listeners bound, or management off. Not an MCP tool.",
+        "operationId": "health.ready",
+        "security": [],
+        "summary": "Health ready",
+        "tags": [
+          "health.ready"
+        ]
+      }
+    },
+    "/v1/notifications": {
+      "get": {
+        "description": "In-process RFC 5277 config-change records.",
+        "operationId": "notifications.list",
+        "summary": "List notifications",
+        "tags": [
+          "notifications.list"
+        ]
+      }
+    },
+    "/v1/notifications/{id}": {
+      "get": {
+        "description": "One notification by id.",
+        "operationId": "notifications.get",
+        "summary": "Get notification",
+        "tags": [
+          "notifications.get"
+        ]
+      }
+    },
+    "/v1/notifications:clear": {
+      "post": {
+        "description": "Drop stored notifications without resetting bootstrap.",
+        "operationId": "notifications.clear",
+        "summary": "Clear notifications",
+        "tags": [
+          "notifications.clear"
+        ]
+      }
+    },
+    "/v1/notifications:wait": {
+      "post": {
+        "description": "Block until a matching config-change record, timeout, or wipe.",
+        "operationId": "notifications.wait",
+        "summary": "Wait for notification",
+        "tags": [
+          "notifications.wait"
+        ]
+      }
+    },
+    "/v1/preview/get": {
+      "get": {
+        "description": "Evaluate a user + path against running without opening SSH.",
+        "operationId": "preview.get",
+        "summary": "Preview get",
+        "tags": [
+          "preview.get"
+        ]
+      }
+    },
+    "/v1/profiles": {
+      "get": {
+        "description": "Named device profiles.",
+        "operationId": "profiles.list",
+        "summary": "List profiles",
+        "tags": [
+          "profiles.list"
+        ]
+      }
+    },
+    "/v1/profiles/{name}": {
+      "get": {
+        "description": "One profile by name.",
+        "operationId": "profiles.get",
+        "summary": "Get profile",
+        "tags": [
+          "profiles.get"
+        ]
+      }
+    },
+    "/v1/schema/config": {
+      "get": {
+        "description": "Published v1alpha1 config JSON Schema.",
+        "operationId": "schema.get",
+        "summary": "Config schema",
+        "tags": [
+          "schema.get"
+        ]
+      }
+    },
+    "/v1/sessions": {
+      "get": {
+        "description": "NETCONF SSH and RESTCONF HTTP sessions.",
+        "operationId": "sessions.list",
+        "summary": "List sessions",
+        "tags": [
+          "sessions.list"
+        ]
+      }
+    },
+    "/v1/sessions/{id}:kill": {
+      "post": {
+        "description": "Drop one NETCONF or RESTCONF session by id.",
+        "operationId": "session.kill",
+        "summary": "Kill session",
+        "tags": [
+          "session.kill"
+        ]
+      }
+    },
+    "/v1/state": {
+      "get": {
+        "description": "Redacted spec plus revision metadata.",
+        "operationId": "state.get",
+        "summary": "Get state",
+        "tags": [
+          "state.get"
+        ]
+      }
+    },
+    "/v1/state:export": {
+      "get": {
+        "description": "Canonical desired-state YAML. Secret bytes are absent.",
+        "operationId": "state.export",
+        "summary": "Export",
+        "tags": [
+          "state.export"
+        ]
+      }
+    },
+    "/v1/state:reset": {
+      "post": {
+        "description": "Reread the bootstrap mount, restore trees, and wipe notifications. Never writes the file.",
+        "operationId": "state.reset",
+        "summary": "Reset",
+        "tags": [
+          "state.reset"
+        ]
+      }
+    },
+    "/v1/state:validate": {
+      "post": {
+        "description": "Validate a candidate document without writing.",
+        "operationId": "state.validate",
+        "summary": "Validate",
+        "tags": [
+          "state.validate"
+        ]
+      }
+    },
+    "/v1/status": {
+      "get": {
+        "description": "Listeners, revision, and ready.",
+        "operationId": "status.get",
+        "summary": "Agent status",
+        "tags": [
+          "status.get"
+        ]
+      }
+    },
+    "/v1/users": {
+      "get": {
+        "description": "Data-plane users. Secret file contents are omitted.",
+        "operationId": "users.list",
+        "summary": "List users",
+        "tags": [
+          "users.list"
+        ]
+      }
+    },
+    "/v1/version": {
+      "get": {
+        "description": "Build and protocol versions.",
+        "operationId": "version.get",
+        "summary": "Version",
+        "tags": [
+          "version.get"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "Management listener (default address :8088)",
+      "url": "/"
+    }
+  ]
+}

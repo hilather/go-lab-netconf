@@ -1,0 +1,822 @@
+{
+  "apiVersion": "labnetconf.dev/capabilities/v1",
+  "generatedBy": "scripts/generate; DO NOT EDIT.",
+  "capabilities": [
+    {
+      "id": "health.live",
+      "title": "Health live",
+      "version": "v1",
+      "description": "Process liveness. Not an MCP tool.",
+      "mutating": false,
+      "idempotent": true,
+      "restOnly": true,
+      "rest": [
+        {
+          "method": "GET",
+          "path": "/v1/health/live"
+        }
+      ],
+      "mcp": null
+    },
+    {
+      "id": "health.ready",
+      "title": "Health ready",
+      "version": "v1",
+      "description": "Snapshot loaded and enabled listeners bound, or management off. Not an MCP tool.",
+      "mutating": false,
+      "idempotent": true,
+      "restOnly": true,
+      "rest": [
+        {
+          "method": "GET",
+          "path": "/v1/health/ready"
+        }
+      ],
+      "mcp": null
+    },
+    {
+      "id": "version.get",
+      "title": "Version",
+      "version": "v1",
+      "description": "Build and protocol versions.",
+      "outputSchema": {
+        "name": "Version"
+      },
+      "requiredScopes": [
+        "netconf.read"
+      ],
+      "mutating": false,
+      "idempotent": true,
+      "rest": [
+        {
+          "method": "GET",
+          "path": "/v1/version"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_version_get"
+        ]
+      },
+      "serviceMethods": [
+        "Version"
+      ]
+    },
+    {
+      "id": "capabilities.get",
+      "title": "Capabilities",
+      "version": "v1",
+      "description": "Capability list and protocol metadata.",
+      "outputSchema": {
+        "name": "CapabilityView"
+      },
+      "requiredScopes": [
+        "netconf.read"
+      ],
+      "mutating": false,
+      "idempotent": true,
+      "rest": [
+        {
+          "method": "GET",
+          "path": "/v1/capabilities"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_capabilities_get"
+        ]
+      },
+      "serviceMethods": [
+        "Capabilities"
+      ]
+    },
+    {
+      "id": "status.get",
+      "title": "Agent status",
+      "version": "v1",
+      "description": "Listeners, revision, and ready.",
+      "outputSchema": {
+        "name": "Status"
+      },
+      "requiredScopes": [
+        "netconf.read"
+      ],
+      "mutating": false,
+      "idempotent": true,
+      "rest": [
+        {
+          "method": "GET",
+          "path": "/v1/status"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_status_get"
+        ]
+      },
+      "serviceMethods": [
+        "Status"
+      ]
+    },
+    {
+      "id": "schema.get",
+      "title": "Config schema",
+      "version": "v1",
+      "description": "Published v1alpha1 config JSON Schema.",
+      "requiredScopes": [
+        "netconf.read"
+      ],
+      "mutating": false,
+      "idempotent": true,
+      "rest": [
+        {
+          "method": "GET",
+          "path": "/v1/schema/config"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_schema_get"
+        ],
+        "resources": [
+          "labnetconf://schema/config"
+        ]
+      },
+      "serviceMethods": [
+        "Schema"
+      ]
+    },
+    {
+      "id": "features.list",
+      "title": "Features",
+      "version": "v1",
+      "description": "Frozen live vs reset-only catalog.",
+      "outputSchema": {
+        "name": "FeatureList"
+      },
+      "requiredScopes": [
+        "netconf.read"
+      ],
+      "mutating": false,
+      "idempotent": true,
+      "rest": [
+        {
+          "method": "GET",
+          "path": "/v1/features"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_features_list"
+        ]
+      },
+      "serviceMethods": [
+        "Features"
+      ]
+    },
+    {
+      "id": "state.get",
+      "title": "Get state",
+      "version": "v1",
+      "description": "Redacted spec plus revision metadata.",
+      "outputSchema": {
+        "name": "StateView"
+      },
+      "requiredScopes": [
+        "netconf.read"
+      ],
+      "mutating": false,
+      "idempotent": true,
+      "rest": [
+        {
+          "method": "GET",
+          "path": "/v1/state"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_state_get"
+        ],
+        "resources": [
+          "labnetconf://state"
+        ]
+      },
+      "serviceMethods": [
+        "State"
+      ]
+    },
+    {
+      "id": "state.validate",
+      "title": "Validate",
+      "version": "v1",
+      "description": "Validate a candidate document without writing.",
+      "requiredScopes": [
+        "netconf.admin"
+      ],
+      "mutating": false,
+      "idempotent": true,
+      "rest": [
+        {
+          "method": "POST",
+          "path": "/v1/state:validate"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_state_validate"
+        ]
+      },
+      "serviceMethods": [
+        "ValidateState"
+      ]
+    },
+    {
+      "id": "state.export",
+      "title": "Export",
+      "version": "v1",
+      "description": "Canonical desired-state YAML. Secret bytes are absent.",
+      "requiredScopes": [
+        "netconf.admin"
+      ],
+      "mutating": false,
+      "idempotent": true,
+      "rest": [
+        {
+          "method": "GET",
+          "path": "/v1/state:export"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_state_export"
+        ]
+      },
+      "serviceMethods": [
+        "ExportState"
+      ]
+    },
+    {
+      "id": "state.reset",
+      "title": "Reset",
+      "version": "v1",
+      "description": "Reread the bootstrap mount, restore trees, and wipe notifications. Never writes the file.",
+      "requiredScopes": [
+        "netconf.admin"
+      ],
+      "mutating": true,
+      "idempotent": false,
+      "rest": [
+        {
+          "method": "POST",
+          "path": "/v1/state:reset"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_state_reset"
+        ]
+      },
+      "serviceMethods": [
+        "Reset"
+      ]
+    },
+    {
+      "id": "changes.plan",
+      "title": "Plan",
+      "version": "v1",
+      "description": "Dry-run operations against the active snapshot.",
+      "inputSchema": {
+        "name": "ChangeIn"
+      },
+      "outputSchema": {
+        "name": "Plan"
+      },
+      "requiredScopes": [
+        "netconf.admin"
+      ],
+      "mutating": false,
+      "idempotent": true,
+      "rest": [
+        {
+          "method": "POST",
+          "path": "/v1/changes:plan"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_change_plan"
+        ]
+      },
+      "serviceMethods": [
+        "Plan"
+      ]
+    },
+    {
+      "id": "changes.apply",
+      "title": "Apply",
+      "version": "v1",
+      "description": "Apply operations. expectedRevision and Idempotency-Key are required.",
+      "inputSchema": {
+        "name": "ChangeIn"
+      },
+      "outputSchema": {
+        "name": "ApplyResult"
+      },
+      "requiredScopes": [
+        "netconf.admin"
+      ],
+      "mutating": true,
+      "idempotent": true,
+      "rest": [
+        {
+          "method": "POST",
+          "path": "/v1/changes:apply"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_change_apply"
+        ]
+      },
+      "serviceMethods": [
+        "Apply"
+      ]
+    },
+    {
+      "id": "profiles.list",
+      "title": "List profiles",
+      "version": "v1",
+      "description": "Named device profiles.",
+      "requiredScopes": [
+        "netconf.read"
+      ],
+      "mutating": false,
+      "idempotent": true,
+      "rest": [
+        {
+          "method": "GET",
+          "path": "/v1/profiles"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_profiles_list"
+        ]
+      },
+      "serviceMethods": [
+        "ListProfiles"
+      ]
+    },
+    {
+      "id": "profiles.get",
+      "title": "Get profile",
+      "version": "v1",
+      "description": "One profile by name.",
+      "requiredScopes": [
+        "netconf.read"
+      ],
+      "mutating": false,
+      "idempotent": true,
+      "rest": [
+        {
+          "method": "GET",
+          "path": "/v1/profiles/{name}"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_profile_get"
+        ],
+        "resources": [
+          "labnetconf://profiles/{name}"
+        ]
+      },
+      "serviceMethods": [
+        "GetProfile"
+      ]
+    },
+    {
+      "id": "users.list",
+      "title": "List users",
+      "version": "v1",
+      "description": "Data-plane users. Secret file contents are omitted.",
+      "requiredScopes": [
+        "netconf.read"
+      ],
+      "mutating": false,
+      "idempotent": true,
+      "rest": [
+        {
+          "method": "GET",
+          "path": "/v1/users"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_users_list"
+        ]
+      },
+      "serviceMethods": [
+        "ListUsers"
+      ]
+    },
+    {
+      "id": "datastore.get",
+      "title": "Get datastore",
+      "version": "v1",
+      "description": "Instance tree JSON for a profile store (running, candidate, or startup).",
+      "requiredScopes": [
+        "netconf.read"
+      ],
+      "mutating": false,
+      "idempotent": true,
+      "rest": [
+        {
+          "method": "GET",
+          "path": "/v1/datastores/{profile}/{store}"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_datastore_get"
+        ],
+        "resources": [
+          "labnetconf://datastores/{profile}/{store}"
+        ]
+      },
+      "serviceMethods": [
+        "GetDatastore"
+      ]
+    },
+    {
+      "id": "datastore.set",
+      "title": "Set datastore",
+      "version": "v1",
+      "description": "Overlay/tree write on a profile store. Tester helper; same engine as edit-config.",
+      "requiredScopes": [
+        "netconf.write"
+      ],
+      "mutating": true,
+      "idempotent": false,
+      "rest": [
+        {
+          "method": "POST",
+          "path": "/v1/datastores/{profile}/{store}:set"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_datastore_set"
+        ]
+      },
+      "serviceMethods": [
+        "SetDatastore"
+      ]
+    },
+    {
+      "id": "datastore.commit",
+      "title": "Commit",
+      "version": "v1",
+      "description": "Publish candidate to running for a profile.",
+      "requiredScopes": [
+        "netconf.write"
+      ],
+      "mutating": true,
+      "idempotent": false,
+      "rest": [
+        {
+          "method": "POST",
+          "path": "/v1/datastores/{profile}:commit"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_datastore_commit"
+        ]
+      },
+      "serviceMethods": [
+        "Commit"
+      ]
+    },
+    {
+      "id": "datastore.discard",
+      "title": "Discard",
+      "version": "v1",
+      "description": "Restore candidate from running for a profile.",
+      "requiredScopes": [
+        "netconf.write"
+      ],
+      "mutating": true,
+      "idempotent": false,
+      "rest": [
+        {
+          "method": "POST",
+          "path": "/v1/datastores/{profile}:discard"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_datastore_discard"
+        ]
+      },
+      "serviceMethods": [
+        "Discard"
+      ]
+    },
+    {
+      "id": "sessions.list",
+      "title": "List sessions",
+      "version": "v1",
+      "description": "NETCONF SSH and RESTCONF HTTP sessions.",
+      "requiredScopes": [
+        "netconf.read"
+      ],
+      "mutating": false,
+      "idempotent": true,
+      "rest": [
+        {
+          "method": "GET",
+          "path": "/v1/sessions"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_sessions_list"
+        ]
+      },
+      "serviceMethods": [
+        "ListSessions"
+      ]
+    },
+    {
+      "id": "session.kill",
+      "title": "Kill session",
+      "version": "v1",
+      "description": "Drop one NETCONF or RESTCONF session by id.",
+      "requiredScopes": [
+        "netconf.admin"
+      ],
+      "mutating": true,
+      "idempotent": false,
+      "rest": [
+        {
+          "method": "POST",
+          "path": "/v1/sessions/{id}:kill"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_session_kill"
+        ]
+      },
+      "serviceMethods": [
+        "KillSession"
+      ]
+    },
+    {
+      "id": "notifications.list",
+      "title": "List notifications",
+      "version": "v1",
+      "description": "In-process RFC 5277 config-change records.",
+      "requiredScopes": [
+        "netconf.read"
+      ],
+      "mutating": false,
+      "idempotent": true,
+      "rest": [
+        {
+          "method": "GET",
+          "path": "/v1/notifications"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_notifications_list"
+        ]
+      },
+      "serviceMethods": [
+        "ListNotifications"
+      ]
+    },
+    {
+      "id": "notifications.get",
+      "title": "Get notification",
+      "version": "v1",
+      "description": "One notification by id.",
+      "requiredScopes": [
+        "netconf.read"
+      ],
+      "mutating": false,
+      "idempotent": true,
+      "rest": [
+        {
+          "method": "GET",
+          "path": "/v1/notifications/{id}"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_notification_get"
+        ],
+        "resources": [
+          "labnetconf://notifications/{id}"
+        ]
+      },
+      "serviceMethods": [
+        "GetNotification"
+      ]
+    },
+    {
+      "id": "notifications.wait",
+      "title": "Wait for notification",
+      "version": "v1",
+      "description": "Block until a matching config-change record, timeout, or wipe.",
+      "requiredScopes": [
+        "netconf.read"
+      ],
+      "mutating": false,
+      "idempotent": true,
+      "rest": [
+        {
+          "method": "POST",
+          "path": "/v1/notifications:wait"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_notifications_wait"
+        ]
+      },
+      "serviceMethods": [
+        "WaitNotification"
+      ]
+    },
+    {
+      "id": "notifications.clear",
+      "title": "Clear notifications",
+      "version": "v1",
+      "description": "Drop stored notifications without resetting bootstrap.",
+      "requiredScopes": [
+        "netconf.write"
+      ],
+      "mutating": true,
+      "idempotent": false,
+      "rest": [
+        {
+          "method": "POST",
+          "path": "/v1/notifications:clear"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_notifications_clear"
+        ]
+      },
+      "serviceMethods": [
+        "ClearNotifications"
+      ]
+    },
+    {
+      "id": "preview.get",
+      "title": "Preview get",
+      "version": "v1",
+      "description": "Evaluate a user + path against running without opening SSH.",
+      "requiredScopes": [
+        "netconf.read"
+      ],
+      "mutating": false,
+      "idempotent": true,
+      "rest": [
+        {
+          "method": "GET",
+          "path": "/v1/preview/get"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_preview_get"
+        ]
+      },
+      "serviceMethods": [
+        "PreviewGet"
+      ]
+    },
+    {
+      "id": "audit.query",
+      "title": "Audit query",
+      "version": "v1",
+      "description": "Recent in-memory mutation events.",
+      "requiredScopes": [
+        "netconf.audit.read"
+      ],
+      "mutating": false,
+      "idempotent": true,
+      "rest": [
+        {
+          "method": "GET",
+          "path": "/v1/audit"
+        }
+      ],
+      "mcp": {
+        "tools": [
+          "netconf_audit_query"
+        ]
+      },
+      "serviceMethods": [
+        "QueryAudit"
+      ]
+    }
+  ],
+  "features": [
+    {
+      "id": "replaceProfiles",
+      "apply": "live",
+      "path": "spec.profiles"
+    },
+    {
+      "id": "upsertProfile",
+      "apply": "live",
+      "path": "spec.profiles"
+    },
+    {
+      "id": "removeProfile",
+      "apply": "live",
+      "path": "spec.profiles"
+    },
+    {
+      "id": "replaceUsers",
+      "apply": "live",
+      "path": "spec.users"
+    },
+    {
+      "id": "upsertUser",
+      "apply": "live",
+      "path": "spec.users"
+    },
+    {
+      "id": "removeUser",
+      "apply": "live",
+      "path": "spec.users"
+    },
+    {
+      "id": "replaceAdmission",
+      "apply": "live",
+      "path": "spec.admission"
+    },
+    {
+      "id": "replaceNetconfCaps",
+      "apply": "live",
+      "path": "spec.netconf.versions"
+    },
+    {
+      "id": "replaceObservability",
+      "apply": "live",
+      "path": "spec.observability"
+    },
+    {
+      "id": "listeners.netconf.address",
+      "apply": "reset-only",
+      "path": "spec.listeners.netconf.address"
+    },
+    {
+      "id": "listeners.restconf.address",
+      "apply": "reset-only",
+      "path": "spec.listeners.restconf.address"
+    },
+    {
+      "id": "listeners.management.address",
+      "apply": "reset-only",
+      "path": "spec.listeners.management.address"
+    },
+    {
+      "id": "listeners.netconf.hostKeyFile",
+      "apply": "reset-only",
+      "path": "spec.listeners.netconf.hostKeyFile"
+    },
+    {
+      "id": "auth",
+      "apply": "reset-only",
+      "path": "spec.auth"
+    },
+    {
+      "id": "tls",
+      "apply": "reset-only",
+      "path": "spec.listeners.restconf.tls"
+    },
+    {
+      "id": "callHome",
+      "apply": "reset-only",
+      "path": "spec.listeners.callHome"
+    },
+    {
+      "id": "netconfTls",
+      "apply": "reset-only",
+      "path": "spec.listeners.netconfTls"
+    },
+    {
+      "id": "ui.enabled",
+      "apply": "reset-only",
+      "path": "spec.ui.enabled"
+    }
+  ]
+}
