@@ -61,7 +61,7 @@ Canonical Go packages are `internal/ncframing` + `internal/ncrpc`
 | `internal/datastore` | running / candidate / startup + lock |
 | `internal/ncserver` | NETCONF session state machine |
 | `internal/restconf` | RFC 8040 adapter over yangtree |
-| `internal/notif` | notification ring (Sink/Waiter/Nop) |
+| `internal/notif` | RFC 5277 config-change ring (Sink/Waiter; Nop for tests) |
 | `internal/compiler` `snapshot` `config` `model` | GitOps |
 | `internal/app` | plan/apply/reset/preview |
 | `internal/auth` `audit` `capabilities` | control |

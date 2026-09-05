@@ -1,6 +1,6 @@
 # NOTIF-001 — Notification ring
 
-Status: not-started
+Status: complete
 Depends: WIRE-001, TREE-001
 Owns: internal/notif
 

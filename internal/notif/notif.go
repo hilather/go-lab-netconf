@@ -1,4 +1,4 @@
-// Package notif is the in-process config-change notification port.
+// Package notif is the in-process RFC 5277 config-change wait store.
 package notif
 
 import (
@@ -12,6 +12,12 @@ var ErrWaitTimeout = errors.New("wait_timeout")
 // ErrNotFound is returned when Get looks up an unknown notification id.
 var ErrNotFound = errors.New("not_found")
 
+// ErrStoreWiped is returned when Wipe or Clear unblocks a parked Wait.
+var ErrStoreWiped = errors.New("store_wiped")
+
+// StreamNETCONF is the RFC 5277 stream name this store emits.
+const StreamNETCONF = "NETCONF"
+
 // Change is a config-change leaf recorded on commit.
 type Change struct {
 	Path      string
@@ -21,16 +27,17 @@ type Change struct {
 // Notification is one RFC 5277 config-change record.
 type Notification struct {
 	ID      string
+	Stream  string
 	Profile string
 	Changes []Change
 }
 
-// Query selects stored notifications.
+// Query selects stored notifications. Empty Profile matches any.
 type Query struct {
 	Profile string
 }
 
-// WaitQuery selects a notification to wait for.
+// WaitQuery selects a notification to wait for. Empty Profile matches any.
 type WaitQuery struct {
 	Profile string
 }
