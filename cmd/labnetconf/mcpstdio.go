@@ -14,8 +14,7 @@ import (
 	"github.com/hilather/go-lab-netconf/internal/control/mcp"
 )
 
-func mcpStdioCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	_ = stdout
+func mcpStdioCmd(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("mcp-stdio", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	path := fs.String("config", "", "path to bootstrap YAML or JSON")
@@ -75,7 +74,7 @@ func mcpStdioCmd(ctx context.Context, args []string, stdout, stderr io.Writer) i
 		_, _ = fmt.Fprintf(stderr, "labnetconf mcp-stdio: %v\n", err)
 		return 1
 	}
-	if err := s.RunStdio(ctx); err != nil && ctx.Err() == nil {
+	if err := s.Run(ctx, stdin, stdout); err != nil && ctx.Err() == nil {
 		_, _ = fmt.Fprintf(stderr, "labnetconf mcp-stdio: %v\n", err)
 		return 1
 	}

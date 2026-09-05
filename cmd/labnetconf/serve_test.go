@@ -10,15 +10,35 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/hilather/go-lab-netconf/internal/notif"
 )
+
+type syncBuf struct {
+	mu sync.Mutex
+	b  strings.Builder
+}
+
+func (s *syncBuf) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.Write(p)
+}
+
+func (s *syncBuf) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.String()
+}
 
 func TestServeBindsAndHealthReady(t *testing.T) {
 	cfg, ncAddr, rcAddr, mgmtAddr := writeServeFixture(t, true)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	var stdout, stderr strings.Builder
+	var stdout, stderr syncBuf
 	errCh := make(chan int, 1)
 	go func() {
 		errCh <- serveCmd(ctx, []string{
@@ -106,7 +126,7 @@ func TestServeManagementOffStillAnswersRestconf(t *testing.T) {
 	cfg, ncAddr, rcAddr, _ := writeServeFixture(t, true)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	var stdout, stderr strings.Builder
+	var stdout, stderr syncBuf
 	errCh := make(chan int, 1)
 	go func() {
 		errCh <- serveCmd(ctx, []string{
@@ -148,6 +168,13 @@ func TestServeManagementOffStillAnswersRestconf(t *testing.T) {
 		time.Sleep(25 * time.Millisecond)
 	}
 	t.Fatalf("RESTCONF never answered: %v stdout=%q stderr=%q", last, stdout.String(), stderr.String())
+}
+
+func TestProductionSinkIsRing(t *testing.T) {
+	sink := productionSink()
+	if _, ok := sink.(*notif.Ring); !ok {
+		t.Fatalf("production sink is %T, want *notif.Ring", sink)
+	}
 }
 
 func TestMCPStdioLoadsAndExits(t *testing.T) {
@@ -253,7 +280,9 @@ func freeTCP(t *testing.T) string {
 	return addr
 }
 
-func waitHTTP(t *testing.T, errCh <-chan int, stdout, stderr *strings.Builder, url string) {
+type logBuf interface{ String() string }
+
+func waitHTTP(t *testing.T, errCh <-chan int, stdout, stderr logBuf, url string) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	var last error

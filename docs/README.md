@@ -18,4 +18,5 @@ Numbered pack is normative after FND-001. ADRs change invariants.
 - [13 Integration-lab add](13-integration-lab-swap.md)
 - [Implementation index](implementation-design.md)
 - [Known limitations](known-limitations.md)
+- [v1.0.0-rc.1 release notes](releases/v1.0.0-rc.1.md)
 - [ADRs](adr/README.md)

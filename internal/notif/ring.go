@@ -92,7 +92,7 @@ func (r *Ring) List(ctx context.Context, q Query) ([]Notification, error) {
 	defer r.mu.Unlock()
 	var out []Notification
 	for _, n := range r.items {
-		if match(WaitQuery{Profile: q.Profile}, n) {
+		if match(WaitQuery(q), n) {
 			out = append(out, cloneNotification(n))
 		}
 	}

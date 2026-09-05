@@ -16,13 +16,18 @@ import (
 	"time"
 
 	"github.com/hilather/go-lab-netconf/internal/app"
+	"github.com/hilather/go-lab-netconf/internal/auth"
+	"github.com/hilather/go-lab-netconf/internal/control/mcp"
 	"github.com/hilather/go-lab-netconf/internal/control/rest"
 	"github.com/hilather/go-lab-netconf/internal/datastore"
+	"github.com/hilather/go-lab-netconf/internal/model"
 	"github.com/hilather/go-lab-netconf/internal/ncserver"
 	"github.com/hilather/go-lab-netconf/internal/netconfssh"
 	"github.com/hilather/go-lab-netconf/internal/notif"
+	"github.com/hilather/go-lab-netconf/internal/observability"
 	"github.com/hilather/go-lab-netconf/internal/restconf"
 	"github.com/hilather/go-lab-netconf/internal/snapshot"
+	"github.com/hilather/go-lab-netconf/internal/web"
 )
 
 type serveFlags struct {
@@ -86,9 +91,9 @@ func resolveListener(flag, yamlAddr string, yamlEnabled bool) (addr string, enab
 }
 
 // productionSink is the one object cmd injects into datastore.New, SSH, and APP.
-// Ring is not in this tree (NOTIF-001); Nop until a later PR swaps it.
+// GA fails if this still returns Nop.
 func productionSink() notif.Sink {
-	return notif.Nop{}
+	return notif.New(0)
 }
 
 func serveCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -97,9 +102,13 @@ func serveCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		return 2
 	}
 	sink := productionSink()
+	metrics := observability.NewRegistry()
+	logger := observability.NewStderrLogger(observability.LevelInfo)
 	svc, err := app.Boot(ctx, app.Options{
 		BootstrapPath: flags.Config,
 		Sink:          sink,
+		Metrics:       metrics,
+		Logger:        logger,
 	})
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "labnetconf serve: %v\n", err)
@@ -126,8 +135,9 @@ func serveCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	}
 
 	ncs := ncserver.New(ncserver.Config{
-		Users: ncUsers,
-		Sink:  sink,
+		Users:   ncUsers,
+		Sink:    sink,
+		Metrics: metrics,
 		HandleFor: func(username string) (datastore.Handle, bool) {
 			if h, ok := svc.UserDatastore(username); ok {
 				return h, true
@@ -201,6 +211,7 @@ func serveCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 			Addr:             rcAddr,
 			Users:            rcUsers,
 			AllowClientCidrs: restconfCIDRs(snap),
+			Metrics:          metrics,
 			HandleFor: func(username, profile string) (datastore.Handle, bool) {
 				if h, ok := svc.UserDatastore(username); ok {
 					return h, true
@@ -247,11 +258,34 @@ func serveCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	}
 
 	if !mgmtOff {
+		verifier, origins, allowLegacy, err := managementAuth(snap, baseDir)
+		if err != nil {
+			_, _ = fmt.Fprintf(stderr, "labnetconf serve: management: %v\n", err)
+			shutdown()
+			return 1
+		}
+		mcpSrv, err := mcp.New(mcp.Config{
+			Service:            svc,
+			AllowedOrigins:     origins,
+			AllowLegacyClients: allowLegacy,
+			Auth:               verifier,
+		})
+		if err != nil {
+			_, _ = fmt.Fprintf(stderr, "labnetconf serve: mcp: %v\n", err)
+			shutdown()
+			return 1
+		}
 		restSrv, err = rest.New(rest.Config{
-			Addr:    flags.ManagementListen,
-			Service: svc,
-			Live:    func() bool { return true },
-			Ready:   ready,
+			Addr:           flags.ManagementListen,
+			Service:        svc,
+			AllowedOrigins: origins,
+			Live:           func() bool { return true },
+			Ready:          ready,
+			Auth:           verifier,
+			Metrics:        metrics,
+			Logger:         logger,
+			UI:             web.NewHandler(nil),
+			MCP:            mcpSrv.Handler(),
 			UIEnabled: func() bool {
 				live := svc.Active()
 				if live == nil || live.Canonical == nil {
@@ -359,6 +393,29 @@ func sshCIDRs(snap *snapshot.Snapshot) []netip.Prefix {
 		return []netip.Prefix{}
 	}
 	return append([]netip.Prefix(nil), snap.Allow...)
+}
+
+func managementAuth(snap *snapshot.Snapshot, baseDir string) (*auth.Verifier, []string, bool, error) {
+	if snap == nil || snap.Canonical == nil {
+		return nil, nil, false, fmt.Errorf("no active snapshot")
+	}
+	spec := snap.Canonical.Spec
+	tokens := make([]model.TokenSpec, len(spec.Auth.Tokens))
+	copy(tokens, spec.Auth.Tokens)
+	for i := range tokens {
+		tokens[i].SecretFile = resolvePath(tokens[i].SecretFile, baseDir)
+	}
+	authSpec := spec.Auth
+	authSpec.Tokens = tokens
+	v, err := auth.FromSpec(authSpec)
+	if err != nil {
+		return nil, nil, false, err
+	}
+	if err := v.RequireListen(); err != nil {
+		return nil, nil, false, err
+	}
+	origins := append([]string(nil), spec.Management.AllowedOrigins...)
+	return v, origins, spec.Management.MCP.AllowLegacyClients, nil
 }
 
 func restconfCIDRs(snap *snapshot.Snapshot) []string {

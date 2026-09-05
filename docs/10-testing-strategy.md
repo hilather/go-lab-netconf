@@ -20,7 +20,9 @@ Config matrix under testdata/config (`valid/defaults.yaml`,
 `allowClientCidrs`). REST contracts. MCP parity.
 `make web-test` (Vitest; no localStorage tokens). `ui.enabled: false`
 → `GET /` is 404 problem+json. Fuzz ncframing (`make test-fuzz-smoke`,
-plus buildinfo). Container script on :1830 / :8303.
+plus buildinfo). Soak: session/commit/discard/notification wait under
+the race detector. Container script on :1830 / :8303. GA re-runs
+locked tests and live SSH `create-subscription` + wait.
 Locks: KnownFields unknown fields, reserved-key reject,
 `tls.enabled: true` reject, `writableRunning: true` reject,
 framing 1.0 and 1.1, commit moves candidate to running, discard

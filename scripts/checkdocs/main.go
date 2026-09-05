@@ -38,6 +38,7 @@ var RequiredRootDocs = []string{
 	"docs/13-integration-lab-swap.md",
 	"docs/implementation-design.md",
 	"docs/known-limitations.md",
+	"docs/releases/v1.0.0-rc.1.md",
 	"docs/adr/0001-use-go.md",
 	"docs/adr/0002-first-party-netconf.md",
 	"docs/adr/0003-ephemeral-state-and-gitops.md",

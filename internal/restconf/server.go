@@ -11,6 +11,7 @@ import (
 	"github.com/hilather/go-lab-netconf/internal/datastore"
 	"github.com/hilather/go-lab-netconf/internal/domainerr"
 	"github.com/hilather/go-lab-netconf/internal/model"
+	"github.com/hilather/go-lab-netconf/internal/observability"
 )
 
 const (
@@ -50,6 +51,7 @@ type Config struct {
 	// HandleFor, if set, supplies the live datastore per authenticated user
 	// so reset-rebuilt handles are used instead of the constructor map.
 	HandleFor func(username, profile string) (datastore.Handle, bool)
+	Metrics   *observability.Registry
 }
 
 // Server is an HTTP handler for RFC 8040 JSON RESTCONF.
@@ -61,6 +63,7 @@ type Server struct {
 	cidrs     []*net.IPNet
 	denyAll   bool
 	yangDate  string
+	metrics   *observability.Registry
 }
 
 var _ http.Handler = (*Server)(nil)
@@ -99,6 +102,7 @@ func New(cfg Config) (*Server, error) {
 		cidrs:     cidrs,
 		denyAll:   denyAll,
 		yangDate:  date,
+		metrics:   cfg.Metrics,
 	}, nil
 }
 
@@ -119,8 +123,12 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	handler := http.Handler(s)
+	if s.metrics != nil {
+		handler = Instrument(s, s.metrics)
+	}
 	srv := &http.Server{
-		Handler:           s,
+		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 		BaseContext:       func(net.Listener) context.Context { return ctx },
 	}

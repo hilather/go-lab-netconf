@@ -53,6 +53,22 @@ func TestSPADisabledIs404(t *testing.T) {
 	}
 }
 
+func TestMCPMountIsNotSPA(t *testing.T) {
+	s, _ := newTestServer(t)
+	s.cfg.UI = web.NewHandler(nil)
+	s.cfg.UIEnabled = func() bool { return true }
+	s.cfg.MCP = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"mcp":true}`))
+	})
+
+	got := doReq(t, s, http.MethodPost, "/mcp", `{}`)
+	if got.Code != http.StatusOK || !strings.Contains(got.Body.String(), `"mcp":true`) {
+		t.Fatalf("/mcp code=%d body=%s", got.Code, got.Body.String())
+	}
+}
+
 func TestSPADoesNotCaptureAPI(t *testing.T) {
 	s, _ := newTestServer(t)
 	s.cfg.UI = web.NewHandler(nil)

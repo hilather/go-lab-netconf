@@ -1,6 +1,6 @@
 # GA-001 — GA hardening
 
-Status: not-started
+Status: in-progress
 Depends: waves 1–15
 Owns: fuzz, soak, release notes, known-limitations
 

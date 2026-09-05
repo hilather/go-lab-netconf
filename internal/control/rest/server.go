@@ -51,8 +51,11 @@ type Config struct {
 	CookieSecure      bool
 	UI                http.Handler
 	UIEnabled         func() bool
-	Metrics           *observability.Registry
-	Logger            *observability.Logger
+	// MCP is the Streamable HTTP adapter mounted at POST /mcp. cmd wires
+	// it; rest must not import internal/control/mcp.
+	MCP     http.Handler
+	Metrics *observability.Registry
+	Logger  *observability.Logger
 }
 
 // Server is the stdlib net/http management listener.
@@ -283,6 +286,9 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if s.tryMCP(w, r) {
+		return
+	}
 	if s.tryUI(w, r, instance) {
 		return
 	}
@@ -369,7 +375,7 @@ func (w *statusWriter) status() int {
 }
 
 func isHealthCap(cap capabilities.Capability) bool {
-	return cap.ID == capabilities.HealthLive || cap.ID == capabilities.HealthReady
+	return cap.ID == capabilities.HealthLive || cap.ID == capabilities.HealthReady || cap.ID == capabilities.MetricsGet
 }
 
 func (s *Server) isLive() bool {

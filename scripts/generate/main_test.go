@@ -18,8 +18,8 @@ func TestPlannedFiles(t *testing.T) {
 		capabilities.ManifestRelPath:     false,
 		rest.OpenAPIRelPath:              false,
 		capabilities.ErrorCatalogRelPath: false,
-		mcp.ManifestRelPath:          false,
-		observability.CatalogRelPath: false,
+		mcp.ManifestRelPath:              false,
+		observability.CatalogRelPath:     false,
 	}
 	for _, f := range files {
 		if _, ok := want[f.rel]; !ok {

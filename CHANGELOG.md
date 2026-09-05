@@ -109,3 +109,11 @@
   `profile.env` 10830/18303/18830) matching `docs/13`. Vendor pin
   `v1.0.0-rc.1` dest `third_party/go-lab-netconf` is documented;
   integrator pin is LAST (out of band after GA). No `vendor.go`.
+- GA-001: production `serve` injects one `notif.Ring` into
+  `datastore.New`, SSH, and APP (Nop is not wired). Live SSH
+  `create-subscription` plus `/v1/notifications:wait` and MCP wait
+  return the commit record. Soak tests cover session/commit/wait
+  races. Release notes `docs/releases/v1.0.0-rc.1.md` and tag-gate
+  (`scripts/release-gate`, `.github/workflows/release.yml`). Residual
+  limitations documented; TLS/call-home are not claimed. Do not merge
+  without the release manager.
