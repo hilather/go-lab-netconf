@@ -269,7 +269,11 @@ func (s *Server) handleProfilesList(w http.ResponseWriter, r *http.Request, inst
 	if list == nil {
 		list = []app.ProfileSummary{}
 	}
-	s.writeJSON(w, http.StatusOK, map[string]any{"items": list})
+	items := make([]profileJSON, 0, len(list))
+	for _, p := range list {
+		items = append(items, profileJSON{Name: p.Name})
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"items": items})
 	_ = r
 }
 
