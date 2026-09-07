@@ -172,6 +172,51 @@ func TestCandidateDirtyOnRunningSet(t *testing.T) {
 	}
 }
 
+func TestProfilesListItemsUseCamelCaseName(t *testing.T) {
+	s, _ := newTestServer(t)
+	resp := doJSON(t, s, http.MethodGet, "/v1/profiles", "")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET /v1/profiles %d %s", resp.StatusCode, readBody(t, resp))
+	}
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "application/json") {
+		t.Fatalf("ct %s", ct)
+	}
+	body := readBody(t, resp)
+	if strings.Contains(body, `"Name"`) {
+		t.Fatalf("PascalCase Name on list: %s", body)
+	}
+	if !strings.Contains(body, `"name"`) {
+		t.Fatalf("missing camelCase name: %s", body)
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(body), &m); err != nil {
+		t.Fatal(err)
+	}
+	items, _ := m["items"].([]any)
+	if len(items) == 0 {
+		t.Fatal("items")
+	}
+	item, _ := items[0].(map[string]any)
+	if item["name"] != "router-a" {
+		t.Fatalf("name %v", item)
+	}
+	if _, ok := item["Name"]; ok {
+		t.Fatalf("PascalCase key: %v", item)
+	}
+	if len(item) != 1 {
+		t.Fatalf("list item extra keys: %v", item)
+	}
+
+	got := doJSON(t, s, http.MethodGet, "/v1/profiles/router-a", "")
+	if got.StatusCode != http.StatusOK {
+		t.Fatalf("GET /v1/profiles/router-a %d %s", got.StatusCode, readBody(t, got))
+	}
+	gm := decodeMap(t, got)
+	if gm["name"] != "router-a" {
+		t.Fatalf("get %v", gm)
+	}
+}
+
 func TestStateExportYAMLOmitsSecretBytes(t *testing.T) {
 	svc := bootNamedApp(t, "full.yaml")
 	s, _ := newServerFor(t, svc)

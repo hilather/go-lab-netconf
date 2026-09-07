@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `GET /v1/profiles` list items now use camelCase `name`, matching
+  `GET /v1/profiles/{name}`, `GET /v1/users`, and MCP
+  `netconf_profiles_list`.
+
 ## [1.0.0-rc.1] - 2026-09-05
 
 ### Security

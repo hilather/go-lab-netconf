@@ -4,6 +4,9 @@ Frozen routes live in `05-control-plane-and-parity.md`.
 `application/problem+json`. Bearer or session+CSRF. Health is
 unauthenticated. Basic is rejected on `/v1` (401 Bearer).
 
+`GET /v1/profiles` items are `{ "name": ... }`, the same camelCase
+field as `GET /v1/profiles/{name}` and MCP `netconf_profiles_list`.
+
 `GET /v1/datastores/{profile}/{store}` returns the instance tree
 JSON. `POST …:set` is an overlay/tree write on that store (tester
 helper; same engine as edit-config). `POST …:commit` / `:discard`
