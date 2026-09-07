@@ -12,7 +12,7 @@ Compile a profile instance into running/candidate/startup. get / edit / commit /
 - compact schema type check
 - subtree filter (no xpath)
 - per-profile-instance datastores
-- sharedProfileDatastore default false
+- sharedProfileDatastore default true (Matt revise for #3; set false for isolated concurrent testers)
 
 ## Tests
 Commit visible on get running; discard restores; lock-denied; unknown path.

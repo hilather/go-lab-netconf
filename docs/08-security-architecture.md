@@ -10,9 +10,11 @@
   (`127.0.0.0/8`, `::1/128`). Present empty list is deny-all.
 - No call-home (no amplifier, no Dial).
 - Secrets never in GET state, UI, logs at info, or metrics labels.
-- `sharedProfileDatastore` default false so two testers using
-  `alice` on two laptops still collide on SSH username — they must
-  use two users. That is documented, not a NAT bug.
+- `sharedProfileDatastore` default true so management/SPA/MCP edits couple
+  to the live data-plane store; for isolated concurrent testers set
+  `sharedProfileDatastore: false` and use two users on two profiles
+  (SSH username `alice` alone still collides by design — documented,
+  not a NAT bug).
 - Docker userland-proxy SNAT does not collapse profiles (identity
   is user). `remoteAddr` on sessions/notifications is best-effort.
   This file and `docs/02-netconf-restconf-semantics.md` must contain

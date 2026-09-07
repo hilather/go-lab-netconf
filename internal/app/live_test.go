@@ -222,8 +222,10 @@ func TestApplyUpsertUserKeepsCommittedHostname(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, ok := n.Lookup(hostnamePath)
-	if !ok || got != "lab-rtr-a" {
-		t.Fatalf("bob running = %v, want lab-rtr-a", got)
+	// With sharedProfileDatastore default true, new users share the
+	// profile handle and see committed state (not bootstrap).
+	if !ok || got != committedHost {
+		t.Fatalf("bob running = %v, want %q (shared=true couples to committed state)", got, committedHost)
 	}
 }
 
