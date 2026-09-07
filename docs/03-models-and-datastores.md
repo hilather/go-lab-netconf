@@ -17,10 +17,11 @@ There is **no YANG 1.1 compiler** in 1.0 (ADR 0008). Names like
 later get-schema; 1.0 may ignore the body.
 
 Two users may share a profile or point at different ones
-(split-horizon). Sharing is copy-on-compile: each session sees its
-own datastore triple derived from the profile. Concurrent testers
-on the same profile name do **not** share candidate dirty state
-unless `spec.netconf.sharedProfileDatastore: true` (default false).
+(split-horizon). With the default `spec.netconf.sharedProfileDatastore: true`,
+all users bound to the same profile share one datastore triple, so a
+management/SPA/MCP edit dirties the candidate that NETCONF/RESTCONF see.
+Set `sharedProfileDatastore: false` and use two users on two profiles for
+isolated concurrent testers.
 
 ## Path addressing
 

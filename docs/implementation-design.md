@@ -71,7 +71,7 @@ maps + no schema compiler), LabMail (receive-only wait store).
 | D25 | Go 1.26, Apache-2.0, image `ghcr.io/hilather/labnetconf` |
 | D26 | Cookie `labnetconf_session`; CSRF `X-LabNETCONF-CSRF` |
 | D27 | Ready = enabled listeners bound + snapshot + (mgmt bound or off) |
-| D28 | sharedProfileDatastore default false |
+| D28 | sharedProfileDatastore default true (Matt revise for #3) |
 | D29 | Do not advertise xpath in 1.0 |
 | D30 | JSON RESTCONF required; XML optional later |
 

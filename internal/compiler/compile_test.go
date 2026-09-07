@@ -58,8 +58,8 @@ func TestCompileSplitHorizon(t *testing.T) {
 	if ha != "lab-rtr-a" || hb != "lab-rtr-b" {
 		t.Fatalf("hostnames %v %v", ha, hb)
 	}
-	if snap.SharedProfileStore {
-		t.Fatal("sharedProfileDatastore default false")
+	if !snap.SharedProfileStore {
+		t.Fatal("sharedProfileDatastore default true")
 	}
 }
 

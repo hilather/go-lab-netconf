@@ -233,7 +233,7 @@ func applyDecodeDefaults(v any) {
 	setDefault(netconf, "writableRunning", false)
 	notifs := ensureMap(netconf, "notifications")
 	setDefault(notifs, "enabled", true)
-	setDefault(netconf, "sharedProfileDatastore", false)
+	setDefault(netconf, "sharedProfileDatastore", true)
 
 	restconf := ensureMap(spec, "restconf")
 	setDefault(restconf, "json", true)

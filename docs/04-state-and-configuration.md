@@ -41,7 +41,7 @@ spec:
     writableRunning: false
     notifications:
       enabled: true
-    sharedProfileDatastore: false
+    sharedProfileDatastore: true
   restconf:
     json: true
     xml: false

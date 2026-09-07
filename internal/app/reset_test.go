@@ -58,9 +58,41 @@ func TestResetNeverWritesBootstrap(t *testing.T) {
 }
 
 func TestCopyOnCompileIsolatesUsers(t *testing.T) {
-	svc, snap := mustBoot(t)
+	// Isolation only when sharedProfileDatastore is explicitly false.
+	yaml := `apiVersion: labnetconf.dev/v1alpha1
+kind: LabNETCONF
+metadata:
+  name: lab-device
+spec:
+  listeners:
+    netconf:
+      hostKeyFile: /run/secrets/labnetconf-hostkey
+  netconf:
+    sharedProfileDatastore: false
+  profiles:
+    - name: router-a
+      schema:
+        - path: "ietf-system:system/hostname"
+          type: string
+          access: write
+      instance:
+        ietf-system:
+          system:
+            hostname: "lab-rtr-a"
+  users:
+    - name: alice
+      passwordFile: /run/secrets/netconf-alice
+      profile: router-a
+      access: read-write
+`
+	path := copyFixtureWithContent(t, yaml)
+	svc, err := Boot(context.Background(), Options{BootstrapPath: path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snap := svc.Active()
 	ctx := context.Background()
-	_, err := svc.Apply(ctx, []ApplyOp{{
+	_, err = svc.Apply(ctx, []ApplyOp{{
 		Op: OpUpsertUser,
 		User: &model.UserSpec{
 			Name:         "bob",
@@ -81,7 +113,7 @@ func TestCopyOnCompileIsolatesUsers(t *testing.T) {
 		t.Fatal("bob handle")
 	}
 	if alice == bob {
-		t.Fatal("copy-on-compile must not share handles")
+		t.Fatal("copy-on-compile must not share handles when shared=false")
 	}
 	mergeHostnameOnHandle(t, alice, "from-alice")
 	n, err := bob.Get(ctx, datastore.Candidate, datastore.Subtree{Path: hostnamePath})
@@ -92,4 +124,13 @@ func TestCopyOnCompileIsolatesUsers(t *testing.T) {
 	if !ok || got != "lab-rtr-a" {
 		t.Fatalf("bob candidate leaked alice edit: %v", got)
 	}
+}
+
+func copyFixtureWithContent(t *testing.T, content string) string {
+	t.Helper()
+	path := t.TempDir() + "/labnetconf.yaml"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }
