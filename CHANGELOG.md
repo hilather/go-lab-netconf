@@ -2,14 +2,17 @@
 
 ## [Unreleased]
 
+## [1.0.0-rc.2] - 2026-09-14
+
 ### Fixed
 
 - `GET /v1/profiles` list items now use camelCase `name`, matching
   `GET /v1/profiles/{name}`, `GET /v1/users`, and MCP
-  `netconf_profiles_list`.
+  `netconf_profiles_list` ([#4](https://github.com/hilather/go-lab-netconf/pull/4)).
 - Default `spec.netconf.sharedProfileDatastore` is now `true` so
   management/SPA/MCP profile datastores couple to the live
-  data-plane store (Fixes #3; D28 revised to default true).
+  data-plane store (Fixes #3; D28 revised to default true)
+  ([#5](https://github.com/hilather/go-lab-netconf/pull/5)).
   Explicit `false` remains a valid opt-out for multi-tester
   isolation when combined with two users on two profiles.
 
