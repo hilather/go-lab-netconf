@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Security
+
+- A present empty `allowClientCidrs` on `replaceAdmission` is
+  deny-all. Omitted or null still becomes loopback.
+
 ## [1.0.0-rc.2] - 2026-09-14
 
 ### Fixed

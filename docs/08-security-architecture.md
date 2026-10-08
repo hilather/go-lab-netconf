@@ -7,7 +7,9 @@
 - RESTCONF data plane: HTTP Basic against the same `spec.users[]`.
   Management bearer does not unlock `/restconf` by default.
 - Admission CIDRs on both data planes. Omitted defaults to loopback
-  (`127.0.0.0/8`, `::1/128`). Present empty list is deny-all.
+  (`127.0.0.0/8`, `::1/128`). Present empty list is deny-all, including
+  a live `replaceAdmission` with `[]`. Omitted or null still becomes
+  loopback.
 - No call-home (no amplifier, no Dial).
 - Secrets never in GET state, UI, logs at info, or metrics labels.
 - `sharedProfileDatastore` default true so management/SPA/MCP edits couple

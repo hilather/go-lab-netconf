@@ -116,6 +116,9 @@ mutates running or startup. Candidate-only edits do not increment it.
 | replaceNetconfCaps | ui.enabled, management.address | |
 | replaceObservability | | |
 
+A present empty `allowClientCidrs` (`[]`) stays deny-all through plan
+and apply. Omitted or null still becomes loopback.
+
 ## Closed apply operations (1.0)
 
 `replaceProfiles`, `upsertProfile`, `removeProfile`,
