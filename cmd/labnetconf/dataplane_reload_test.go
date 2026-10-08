@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -140,6 +141,9 @@ func TestApplyPasswordReloadAndUnreadablePassword(t *testing.T) {
 			"access":       "read-write",
 		},
 	})
+	if !strings.Contains(proc.stderr.String(), "labnetconf serve: data-plane reload:") {
+		t.Fatalf("reload failure missing from serve stderr: %q", proc.stderr.String())
+	}
 	err := dialServePassword(t, proc.nc, newPass)
 	if err == nil || !strings.Contains(err.Error(), "ssh: unable to authenticate") {
 		t.Fatalf("loopback dial after unreadable password = %v, want ssh: unable to authenticate", err)
@@ -225,6 +229,98 @@ func TestReloadDataPlaneRelativePasswordFile(t *testing.T) {
 	}
 }
 
+// TestReloadSetAdmissionErrorClearsRESTCONFUsers plants an invalid
+// prefix on the live snapshot. Compiled prefixes stringify to CIDRs
+// net.ParseCIDR accepts, so this is the way SetAdmission fails.
+// Fail-closed clears RESTCONF users and leaves the previous admission,
+// so host-meta from loopback stays 200 and alice's password is 401.
+func TestReloadSetAdmissionErrorClearsRESTCONFUsers(t *testing.T) {
+	cfg, _, _, _ := writeServeFixture(t, false)
+	baseDir, err := filepath.Abs(filepath.Dir(cfg))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	svc, err := app.Boot(ctx, app.Options{BootstrapPath: cfg})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snap := svc.Active()
+	_, _, rcUsers, err := dataPlaneUsers(svc, snap, baseDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rcSrv, err := restconf.New(restconf.Config{
+		Users:            rcUsers,
+		AllowClientCidrs: restconfCIDRs(snap),
+		HandleFor: func(username, profile string) (datastore.Handle, bool) {
+			if h, ok := svc.UserDatastore(username); ok {
+				return h, true
+			}
+			return svc.Datastore(profile)
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rcLn, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = rcLn.Close() })
+	go func() { _ = rcSrv.Serve(ctx, rcLn) }()
+
+	addr := rcLn.Addr().String()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		code, gerr := restconfAuthStatus(addr, "alice-lab-password")
+		if gerr == nil && code == http.StatusOK {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("RESTCONF before reload = %d err=%v, want 200", code, gerr)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	live := svc.Active()
+	live.AllowDenyAll = false
+	live.Allow = []netip.Prefix{{}}
+	var logs bytes.Buffer
+	reloadDataPlane(svc, baseDir, nil, nil, rcSrv, nil, &logs)
+	if !strings.Contains(logs.String(), "labnetconf serve: data-plane reload:") {
+		t.Fatalf("admission reload error missing from stderr: %q", logs.String())
+	}
+
+	if code := hostMeta(t, serveProc{rc: addr}); code != http.StatusOK {
+		t.Fatalf("host-meta after admission reload error = %d, want 200", code)
+	}
+	code, err := restconfAuthStatus(addr, "alice-lab-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code != http.StatusUnauthorized {
+		t.Fatalf("RESTCONF after SetAdmission failure = %d, want 401", code)
+	}
+}
+
+func restconfAuthStatus(addr, password string) (int, error) {
+	req, err := http.NewRequest(http.MethodGet, "http://"+addr+"/restconf/data/ietf-system:system/hostname", nil)
+	if err != nil {
+		return 0, err
+	}
+	req.SetBasicAuth("alice", password)
+	req.Header.Set("Accept", "application/yang-data+json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = res.Body.Close() }()
+	_, _ = io.Copy(io.Discard, res.Body)
+	return res.StatusCode, nil
+}
+
 // TestDataPlaneReloadSerializes is a consistency guard. The first reload
 // reads the tight-admission snapshot and blocks, still holding the mutex,
 // until a second reload is blocked on that same lock. The newer snapshot
@@ -305,7 +401,7 @@ func TestDataPlaneReloadSerializes(t *testing.T) {
 
 	var mu sync.Mutex
 	svc.OnApply(func() {
-		reloadDataPlane(svc, baseDir, ncs, sshSrv, rcSrv, &mu)
+		reloadDataPlane(svc, baseDir, ncs, sshSrv, rcSrv, &mu, io.Discard)
 	})
 	entered := make(chan struct{})
 	var calls atomic.Int32

@@ -173,6 +173,7 @@ func installGH(t *testing.T, listJSON, viewBody string) string {
 	t.Helper()
 	dir := t.TempDir()
 	mark := filepath.Join(dir, "headbranch")
+	argsPath := filepath.Join(dir, "args")
 	script := filepath.Join(dir, "gh")
 	body := fmt.Sprintf(`#!/bin/sh
 for a in "$@"; do
@@ -182,6 +183,7 @@ for a in "$@"; do
 done
 case "$1 $2" in
 "run list")
+  printf '%%s\n' "$@" > %q
   cat <<'EOF'
 %s
 EOF
@@ -194,7 +196,7 @@ EOF
   exit 2
   ;;
 esac
-`, mark, strings.TrimSpace(listJSON), viewBody)
+`, mark, argsPath, strings.TrimSpace(listJSON), viewBody)
 	if err := os.WriteFile(script, []byte(body), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -210,6 +212,13 @@ func assertHeadBranchRequested(t *testing.T, mark string) {
 	t.Helper()
 	if _, err := os.Stat(mark); err != nil {
 		t.Fatal("gh run list omitted headBranch")
+	}
+	body, err := os.ReadFile(filepath.Join(filepath.Dir(mark), "args"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), "--limit=200") {
+		t.Fatalf("gh run list args missing --limit=200:\n%s", body)
 	}
 }
 

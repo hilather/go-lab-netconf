@@ -107,6 +107,7 @@ func requireGreenCI() error {
 	cmd := exec.Command("gh", "run", "list",
 		"--workflow=ci.yml",
 		"--commit="+sha,
+		"--limit=200",
 		"--json", "databaseId,status,headSha,headBranch,event")
 	out, err := cmd.Output()
 	if err != nil {
