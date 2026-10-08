@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Go toolchain pinned to go1.26.8 (go.mod `toolchain`, CI `GO_VERSION`, Dockerfile); 1.26.0–1.26.7 lack current stdlib security fixes.
+
 ### Security
 
 - A present empty `allowClientCidrs` on `replaceAdmission` is
