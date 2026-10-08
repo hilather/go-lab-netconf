@@ -19,7 +19,10 @@
   whose user, access, profile or profile datastore changed are closed.
   Listener addresses and host keys are unchanged.
 - The tag gate accepts only the completed push CI run for that tag
-  and SHA. The tag enters the shell as an environment variable.
+  and SHA. Only the newest tag-push run (highest databaseId) counts,
+  and a newer in-progress tag run stays pending even when an older
+  tag run is green. The tag enters the shell as an environment
+  variable.
 
 ## [1.0.0-rc.2] - 2026-09-14
 
