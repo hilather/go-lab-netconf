@@ -14,6 +14,8 @@
   and admission, and the SSH allow-list and credential bytes. Sessions
   whose user, access, profile or profile datastore changed are closed.
   Listener addresses and host keys are unchanged.
+- The tag gate accepts only the completed push CI run for that tag
+  and SHA. The tag enters the shell as an environment variable.
 
 ## [1.0.0-rc.2] - 2026-09-14
 

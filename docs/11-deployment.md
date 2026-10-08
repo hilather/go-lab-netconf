@@ -18,3 +18,6 @@ Flags:
 
 SSH needs a host key file even on :1830. testdata ships a lab-only
 key. Never commit a production key.
+
+Tag-gate waits for the tag's own push CI run. The ref is not
+interpolated into `run:`.

@@ -76,6 +76,21 @@ func validateNotes(path string) error {
 	return nil
 }
 
+func releaseTag() (string, error) {
+	ref := os.Getenv("GITHUB_REF")
+	var tag string
+	if strings.HasPrefix(ref, "refs/tags/") {
+		tag = strings.TrimPrefix(ref, "refs/tags/")
+	} else {
+		tag = strings.TrimPrefix(os.Getenv("GITHUB_REF_NAME"), "refs/tags/")
+	}
+	tag = strings.TrimSpace(tag)
+	if tag == "" {
+		return "", fmt.Errorf("release tag is empty")
+	}
+	return tag, nil
+}
+
 func requireGreenCI() error {
 	sha := strings.TrimSpace(os.Getenv("GITHUB_SHA"))
 	if sha == "" {
@@ -85,41 +100,45 @@ func requireGreenCI() error {
 		}
 		sha = strings.TrimSpace(string(out))
 	}
+	tag, err := releaseTag()
+	if err != nil {
+		return err
+	}
 	cmd := exec.Command("gh", "run", "list",
 		"--workflow=ci.yml",
 		"--commit="+sha,
-		"--json", "databaseId,conclusion,status,headSha,event,displayTitle")
+		"--json", "databaseId,status,headSha,headBranch,event")
 	out, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("gh run list: %w", err)
 	}
 	var runs []struct {
 		DatabaseID int    `json:"databaseId"`
-		Conclusion string `json:"conclusion"`
 		Status     string `json:"status"`
 		HeadSHA    string `json:"headSha"`
+		HeadBranch string `json:"headBranch"`
 		Event      string `json:"event"`
 	}
 	if err := json.Unmarshal(out, &runs); err != nil {
 		return fmt.Errorf("parse gh run list: %w", err)
 	}
-	var id int
-	for _, r := range runs {
-		if r.Status != "completed" {
+	bestIdx := -1
+	for i, r := range runs {
+		if r.Event != "push" || r.HeadSHA != sha || r.HeadBranch != tag {
 			continue
 		}
-		if r.Event == "push" {
-			id = r.DatabaseID
-			break
-		}
-		if id == 0 {
-			id = r.DatabaseID
+		if bestIdx < 0 || r.DatabaseID > runs[bestIdx].DatabaseID {
+			bestIdx = i
 		}
 	}
-	if id == 0 {
-		return fmt.Errorf("no completed CI run for commit %s", sha)
+	if bestIdx < 0 {
+		return fmt.Errorf("no matching run for tag %s at %s", tag, sha)
 	}
-	view := exec.Command("gh", "run", "view", fmt.Sprintf("%d", id), "--json", "jobs")
+	best := runs[bestIdx]
+	if best.Status != "completed" {
+		return fmt.Errorf("pending CI run %d for tag %s", best.DatabaseID, tag)
+	}
+	view := exec.Command("gh", "run", "view", fmt.Sprintf("%d", best.DatabaseID), "--json", "jobs")
 	jobJSON, err := view.Output()
 	if err != nil {
 		return fmt.Errorf("gh run view: %w", err)
