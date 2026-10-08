@@ -9,7 +9,8 @@
 - Admission CIDRs on both data planes. Omitted defaults to loopback
   (`127.0.0.0/8`, `::1/128`). Present empty list is deny-all, including
   a live `replaceAdmission` with `[]`. Omitted or null still becomes
-  loopback.
+  loopback. Admission and user access on the running listeners are
+  taken from the live snapshot.
 - No call-home (no amplifier, no Dial).
 - Secrets never in GET state, UI, logs at info, or metrics labels.
 - `sharedProfileDatastore` default true so management/SPA/MCP edits couple

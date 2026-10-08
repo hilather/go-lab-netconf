@@ -10,6 +10,10 @@
   stay unauthenticated.
 - mcp-stdio keeps the startup bearer and drops that pin when the
   secret no longer authenticates after reset or apply.
+- A successful apply or reset updates NETCONF access, RESTCONF users
+  and admission, and the SSH allow-list and credential bytes. Sessions
+  whose user, access, profile or profile datastore changed are closed.
+  Listener addresses and host keys are unchanged.
 
 ## [1.0.0-rc.2] - 2026-09-14
 

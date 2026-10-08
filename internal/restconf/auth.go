@@ -32,14 +32,15 @@ func parseAdmission(cidrs []string) ([]*net.IPNet, bool, error) {
 }
 
 func (s *Server) admit(remote string) bool {
-	if s.denyAll {
+	a := s.admission.Load()
+	if a == nil || a.denyAll {
 		return false
 	}
 	ip := ipFromRemote(remote)
 	if ip == nil {
 		return false
 	}
-	for _, n := range s.cidrs {
+	for _, n := range a.nets {
 		if n.Contains(ip) {
 			return true
 		}
@@ -64,8 +65,13 @@ func (s *Server) authenticate(r *http.Request) (*User, error) {
 	provided := []byte(pass)
 	dummy := []byte("restconf-dummy-password")
 	matched := (*User)(nil)
-	for i := range s.users {
-		u := &s.users[i]
+	up := s.users.Load()
+	if up == nil {
+		return nil, unauth
+	}
+	users := *up
+	for i := range users {
+		u := &users[i]
 		if subtle.ConstantTimeCompare([]byte(u.Name), []byte(user)) == 1 {
 			stored := bytes.TrimRight(u.Password, "\r\n")
 			if len(stored) == 0 || len(provided) == 0 {

@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"os"
 	"sync"
+	"sync/atomic"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -39,7 +40,8 @@ type Config struct {
 type Server struct {
 	cfg    Config
 	sshCfg *ssh.ServerConfig
-	users  map[string]*loadedUser
+	users  atomic.Pointer[map[string]*loadedUser]
+	allow  atomic.Pointer[[]netip.Prefix]
 	ln     net.Listener
 
 	mu    sync.Mutex
@@ -83,10 +85,11 @@ func New(cfg Config) (*Server, error) {
 
 	s := &Server{
 		cfg:    cfg,
-		users:  users,
 		conns:  map[net.Conn]struct{}{},
 		sshCfg: &ssh.ServerConfig{ServerVersion: "SSH-2.0-labnetconf"},
 	}
+	s.storeUsers(users)
+	s.SetAllow(cfg.AllowCIDRs)
 	s.sshCfg.AddHostKey(signer)
 	s.sshCfg.PasswordCallback = s.passwordAuth
 	s.sshCfg.PublicKeyCallback = s.publicKeyAuth
@@ -122,6 +125,60 @@ func (s *Server) Close() error {
 	if s.ln != nil {
 		err = s.ln.Close()
 	}
+	s.CloseConns()
+	return err
+}
+
+// SetAllow publishes CIDRs. Nil is loopback. A non-nil empty list is
+// deny-all. Connections that fail the new list are closed after the
+// publish, without holding the connection mutex.
+func (s *Server) SetAllow(cidrs []netip.Prefix) {
+	if s == nil {
+		return
+	}
+	next := copyPrefixes(cidrs)
+	s.allow.Store(&next)
+	s.mu.Lock()
+	drop := make([]net.Conn, 0)
+	for c := range s.conns {
+		if !s.admitted(c.RemoteAddr()) {
+			drop = append(drop, c)
+		}
+	}
+	s.mu.Unlock()
+	for _, c := range drop {
+		_ = c.Close()
+	}
+}
+
+// ReplaceUsers reloads credential files. On error the previous map stays.
+func (s *Server) ReplaceUsers(users []User) error {
+	if s == nil {
+		return fmt.Errorf("netconfssh: nil server")
+	}
+	next, err := loadUsers(users)
+	if err != nil {
+		return err
+	}
+	s.storeUsers(next)
+	return nil
+}
+
+// ClearUsers publishes an empty credential map without reading files.
+func (s *Server) ClearUsers() {
+	if s == nil {
+		return
+	}
+	empty := map[string]*loadedUser{}
+	s.storeUsers(empty)
+}
+
+// CloseConns closes tracked connections. The copy happens under the
+// mutex; Close runs after it is released.
+func (s *Server) CloseConns() {
+	if s == nil {
+		return
+	}
 	s.mu.Lock()
 	conns := make([]net.Conn, 0, len(s.conns))
 	for c := range s.conns {
@@ -132,7 +189,35 @@ func (s *Server) Close() error {
 	for _, c := range conns {
 		_ = c.Close()
 	}
-	return err
+}
+
+func (s *Server) storeUsers(users map[string]*loadedUser) {
+	s.users.Store(&users)
+}
+
+func (s *Server) userMap() map[string]*loadedUser {
+	p := s.users.Load()
+	if p == nil {
+		return nil
+	}
+	return *p
+}
+
+func (s *Server) admitted(addr net.Addr) bool {
+	var cidrs []netip.Prefix
+	if p := s.allow.Load(); p != nil {
+		cidrs = *p
+	}
+	return admit(addr, cidrs)
+}
+
+func copyPrefixes(in []netip.Prefix) []netip.Prefix {
+	if in == nil {
+		return nil
+	}
+	out := make([]netip.Prefix, len(in))
+	copy(out, in)
+	return out
 }
 
 // Serve accepts SSH connections until ctx is cancelled or the listener closes.
@@ -158,11 +243,14 @@ func (s *Server) Serve(ctx context.Context) error {
 
 func (s *Server) handle(ctx context.Context, conn net.Conn) {
 	defer func() { _ = conn.Close() }()
-	if !admit(conn.RemoteAddr(), s.cfg.AllowCIDRs) {
+	if !s.admitted(conn.RemoteAddr()) {
 		return
 	}
 	s.track(conn, true)
 	defer s.track(conn, false)
+	if !s.admitted(conn.RemoteAddr()) {
+		return
+	}
 
 	sshConn, chans, reqs, err := ssh.NewServerConn(conn, s.sshCfg)
 	if err != nil {

@@ -43,7 +43,7 @@ type SessionInfo struct {
 
 // Server owns the session table and dispatches RPCs into datastores.
 type Server struct {
-	users     map[string]User
+	users     atomic.Pointer[map[string]User]
 	sink      notif.Sink
 	handleFor func(username string) (datastore.Handle, bool)
 	metrics   *observability.Registry
@@ -55,20 +55,75 @@ type Server struct {
 
 // New copies cfg.Users into an index. Duplicate names keep the last entry.
 func New(cfg Config) *Server {
-	users := make(map[string]User, len(cfg.Users))
-	for _, u := range cfg.Users {
-		if u.Access == "" {
-			u.Access = model.UserAccessReadWrite
-		}
-		users[u.Name] = u
-	}
-	return &Server{
-		users:     users,
+	s := &Server{
 		sink:      cfg.Sink,
 		handleFor: cfg.HandleFor,
 		metrics:   cfg.Metrics,
 		sessions:  map[string]*session{},
 	}
+	s.storeUsers(cfg.Users)
+	return s
+}
+
+// ReplaceUsers publishes users and closes sessions whose name, access,
+// profile, or datastore handle no longer match. The handle compared is the
+// one stored on the user, not a fresh profile lookup.
+func (s *Server) ReplaceUsers(users []User) {
+	if s == nil {
+		return
+	}
+	next := indexUsers(users)
+	s.users.Store(&next)
+	s.mu.Lock()
+	victims := make([]*session, 0)
+	for id, sess := range s.sessions {
+		live, ok := next[sess.user.Name]
+		if ok && live.Access == sess.user.Access && live.Profile == sess.user.Profile && live.Handle == sess.user.Handle {
+			continue
+		}
+		delete(s.sessions, id)
+		victims = append(victims, sess)
+	}
+	if len(victims) > 0 {
+		s.publishSessionsLocked()
+	}
+	s.mu.Unlock()
+	for _, sess := range victims {
+		sess.cancel()
+		_ = sess.rw.Close()
+	}
+}
+
+func indexUsers(in []User) map[string]User {
+	users := make(map[string]User, len(in))
+	for _, u := range in {
+		if u.Access == "" {
+			u.Access = model.UserAccessReadWrite
+		}
+		if u.Namespaces != nil {
+			cp := make(map[string]string, len(u.Namespaces))
+			for k, v := range u.Namespaces {
+				cp[k] = v
+			}
+			u.Namespaces = cp
+		}
+		users[u.Name] = u
+	}
+	return users
+}
+
+func (s *Server) storeUsers(in []User) {
+	users := indexUsers(in)
+	s.users.Store(&users)
+}
+
+func (s *Server) userByName(name string) (User, bool) {
+	p := s.users.Load()
+	if p == nil {
+		return User{}, false
+	}
+	u, ok := (*p)[name]
+	return u, ok
 }
 
 // Serve runs one NETCONF session on rw until close-session, kill, or error.
@@ -76,7 +131,7 @@ func (s *Server) Serve(ctx context.Context, username, remoteAddr string, rw io.R
 	if s == nil {
 		return fmt.Errorf("ncserver: nil server")
 	}
-	user, ok := s.users[username]
+	user, ok := s.userByName(username)
 	if !ok {
 		_ = rw.Close()
 		return fmt.Errorf("ncserver: unknown user")
@@ -103,7 +158,18 @@ func (s *Server) Serve(ctx context.Context, username, remoteAddr string, rw io.R
 	s.mu.Lock()
 	s.sessions[id] = sess
 	s.publishSessionsLocked()
+	live, liveOK := s.userByName(username)
+	stale := !liveOK || live.Access != user.Access || live.Profile != user.Profile || live.Handle != user.Handle
+	if stale {
+		delete(s.sessions, id)
+		s.publishSessionsLocked()
+	}
 	s.mu.Unlock()
+	if stale {
+		cancel()
+		_ = rw.Close()
+		return fmt.Errorf("ncserver: user access changed")
+	}
 	defer func() {
 		cancel()
 		s.drop(id)

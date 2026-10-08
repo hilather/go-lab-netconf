@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/hilather/go-lab-netconf/internal/datastore"
@@ -54,14 +55,18 @@ type Config struct {
 	Metrics   *observability.Registry
 }
 
+type clientAdmission struct {
+	nets    []*net.IPNet
+	denyAll bool
+}
+
 // Server is an HTTP handler for RFC 8040 JSON RESTCONF.
 type Server struct {
 	addr      string
-	users     []User
+	users     atomic.Pointer[[]User]
+	admission atomic.Pointer[clientAdmission]
 	handles   map[string]datastore.Handle
 	handleFor func(username, profile string) (datastore.Handle, bool)
-	cidrs     []*net.IPNet
-	denyAll   bool
 	yangDate  string
 	metrics   *observability.Registry
 }
@@ -70,10 +75,6 @@ var _ http.Handler = (*Server)(nil)
 
 // New builds a RESTCONF handler. It does not bind a port.
 func New(cfg Config) (*Server, error) {
-	cidrs, denyAll, err := parseAdmission(cfg.AllowClientCidrs)
-	if err != nil {
-		return nil, err
-	}
 	handles := cfg.Handles
 	if handles == nil {
 		handles = map[string]datastore.Handle{}
@@ -81,10 +82,6 @@ func New(cfg Config) (*Server, error) {
 	copied := make(map[string]datastore.Handle, len(handles))
 	for k, v := range handles {
 		copied[k] = v
-	}
-	users := append([]User(nil), cfg.Users...)
-	for i := range users {
-		users[i].Password = append([]byte(nil), users[i].Password...)
 	}
 	date := strings.TrimSpace(cfg.YangLibraryDate)
 	if date == "" {
@@ -94,16 +91,55 @@ func New(cfg Config) (*Server, error) {
 	if addr == "" {
 		addr = DefaultAddr
 	}
-	return &Server{
+	s := &Server{
 		addr:      addr,
-		users:     users,
 		handles:   copied,
 		handleFor: cfg.HandleFor,
-		cidrs:     cidrs,
-		denyAll:   denyAll,
 		yangDate:  date,
 		metrics:   cfg.Metrics,
-	}, nil
+	}
+	if err := s.SetAdmission(cfg.AllowClientCidrs); err != nil {
+		return nil, err
+	}
+	s.ReplaceUsers(cfg.Users)
+	return s, nil
+}
+
+// SetAdmission publishes client CIDRs. A nil list is loopback. A non-nil
+// empty list is deny-all. The caller's slice is not retained.
+func (s *Server) SetAdmission(cidrs []string) error {
+	if s == nil {
+		return errors.New("restconf: nil server")
+	}
+	nets, denyAll, err := parseAdmission(copyStrings(cidrs))
+	if err != nil {
+		return err
+	}
+	s.admission.Store(&clientAdmission{nets: nets, denyAll: denyAll})
+	return nil
+}
+
+// ReplaceUsers publishes users. Nil is an empty set and rejects every
+// credential. Password bytes are copied.
+func (s *Server) ReplaceUsers(users []User) {
+	if s == nil {
+		return
+	}
+	next := make([]User, len(users))
+	for i, u := range users {
+		next[i] = u
+		next[i].Password = append([]byte(nil), u.Password...)
+	}
+	s.users.Store(&next)
+}
+
+func copyStrings(in []string) []string {
+	if in == nil {
+		return nil
+	}
+	out := make([]string, len(in))
+	copy(out, in)
+	return out
 }
 
 // ListenAndServe binds Config.Addr (default :8303) and serves until ctx is done.

@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"net/netip"
+	"strings"
 	"testing"
 	"time"
 
@@ -146,6 +147,35 @@ func TestWrongSubsystemRejected(t *testing.T) {
 	defer func() { _ = c2.Close() }()
 	if err := requestSubsystem(t, c2, "netconf"); err != nil {
 		t.Fatalf("subsystem netconf: %v", err)
+	}
+}
+
+func TestClearUsersRejectsPasswordWithLoopbackAdmission(t *testing.T) {
+	s, addr := startSSH(t, Config{
+		AllowCIDRs: []netip.Prefix{
+			netip.MustParsePrefix("127.0.0.0/8"),
+			netip.MustParsePrefix("::1/128"),
+		},
+		Users: []User{{
+			Name:         "alice",
+			PasswordFile: keyPath(t, "alice.password"),
+		}},
+	})
+	s.ClearUsers()
+	tcp, err := net.DialTimeout("tcp", addr, 3*time.Second)
+	if err != nil {
+		t.Fatalf("tcp dial: %v", err)
+	}
+	defer func() { _ = tcp.Close() }()
+	cfg := &ssh.ClientConfig{
+		User:            "alice",
+		Auth:            []ssh.AuthMethod{ssh.Password("alice-lab-password")},
+		HostKeyCallback: hostKeyCallback(t),
+		Timeout:         2 * time.Second,
+	}
+	_, _, _, err = ssh.NewClientConn(tcp, addr, cfg)
+	if err == nil || !strings.Contains(err.Error(), "ssh: unable to authenticate") {
+		t.Fatalf("ClearUsers dial = %v, want ssh: unable to authenticate", err)
 	}
 }
 

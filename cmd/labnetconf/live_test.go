@@ -140,6 +140,11 @@ func readToken(t *testing.T, cfg string) string {
 
 func openServeNETCONF(t *testing.T, addr string) *nctest.Client {
 	t.Helper()
+	return openServeNETCONFPassword(t, addr, "alice-lab-password")
+}
+
+func openServeNETCONFPassword(t *testing.T, addr, password string) *nctest.Client {
+	t.Helper()
 	root := repoRoot(t)
 	pem, err := os.ReadFile(filepath.Join(root, "testdata", "keys", "labnetconf-hostkey"))
 	if err != nil {
@@ -151,7 +156,7 @@ func openServeNETCONF(t *testing.T, addr string) *nctest.Client {
 	}
 	cfg := &ssh.ClientConfig{
 		User:            "alice",
-		Auth:            []ssh.AuthMethod{ssh.Password("alice-lab-password")},
+		Auth:            []ssh.AuthMethod{ssh.Password(password)},
 		HostKeyCallback: ssh.FixedHostKey(signer.PublicKey()),
 		Timeout:         5 * time.Second,
 	}

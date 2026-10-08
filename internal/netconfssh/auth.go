@@ -63,7 +63,8 @@ func loadUsers(users []User) (map[string]*loadedUser, error) {
 }
 
 func (s *Server) passwordAuth(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
-	u, ok := s.users[conn.User()]
+	users := s.userMap()
+	u, ok := users[conn.User()]
 	if !ok || len(u.password) == 0 {
 		return nil, fmt.Errorf("denied")
 	}
@@ -74,7 +75,8 @@ func (s *Server) passwordAuth(conn ssh.ConnMetadata, password []byte) (*ssh.Perm
 }
 
 func (s *Server) publicKeyAuth(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
-	u, ok := s.users[conn.User()]
+	users := s.userMap()
+	u, ok := users[conn.User()]
 	if !ok {
 		return nil, fmt.Errorf("denied")
 	}
