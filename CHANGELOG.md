@@ -6,6 +6,8 @@
 
 - A present empty `allowClientCidrs` on `replaceAdmission` is
   deny-all. Omitted or null still becomes loopback.
+- `GET /v1/metrics` requires `netconf.read`. Health live and ready
+  stay unauthenticated.
 
 ## [1.0.0-rc.2] - 2026-09-14
 
