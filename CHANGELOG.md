@@ -8,6 +8,8 @@
   deny-all. Omitted or null still becomes loopback.
 - `GET /v1/metrics` requires `netconf.read`. Health live and ready
   stay unauthenticated.
+- mcp-stdio keeps the startup bearer and drops that pin when the
+  secret no longer authenticates after reset or apply.
 
 ## [1.0.0-rc.2] - 2026-09-14
 

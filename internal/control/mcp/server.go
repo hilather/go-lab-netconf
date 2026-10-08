@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -50,17 +51,23 @@ type Config struct {
 	RequestTimeout     time.Duration
 	Auth               *auth.Verifier
 	FixedActor         *app.Actor
+	// StdioSecret is the bearer read from --token-file at process start.
+	// Empty means HTTP, which authenticates each request and has no pin.
+	// The value is never logged.
+	StdioSecret string
 }
 
 // Server is the official-SDK adapter. Third-party MCP types do not escape it.
 type Server struct {
-	cfg     Config
-	svc     app.Service
-	sdk     *sdk.Server
-	http    *sdk.StreamableHTTPHandler
-	maxBody int64
-	timeout time.Duration
-	closed  atomic.Bool
+	cfg        Config
+	svc        app.Service
+	sdk        *sdk.Server
+	http       *sdk.StreamableHTTPHandler
+	maxBody    int64
+	timeout    time.Duration
+	closed     atomic.Bool
+	stdioActor atomic.Pointer[app.Actor]
+	reloadMu   sync.Mutex
 }
 
 type ctxKey int
@@ -74,6 +81,12 @@ const (
 func New(cfg Config) (*Server, error) {
 	if cfg.Service == nil {
 		return nil, errors.New("mcp: Service is required")
+	}
+	if cfg.FixedActor != nil && cfg.StdioSecret == "" {
+		return nil, errors.New("mcp: StdioSecret is required when FixedActor is set")
+	}
+	if cfg.StdioSecret != "" && cfg.Auth == nil {
+		return nil, errors.New("mcp: Auth is required when StdioSecret is set")
 	}
 	maxBody := cfg.MaxBodyBytes
 	if maxBody <= 0 {
@@ -97,6 +110,16 @@ func New(cfg Config) (*Server, error) {
 		maxBody: maxBody,
 		timeout: timeout,
 	}
+	if cfg.FixedActor != nil {
+		pinned := *cfg.FixedActor
+		pinned.Scopes = append([]string(nil), cfg.FixedActor.Scopes...)
+		if pinned.Transport == "" {
+			pinned.Transport = "mcp"
+		}
+		s.stdioActor.Store(&pinned)
+	}
+	// actorFrom loads stdioActor. It must not read FixedActor after New.
+	s.cfg.FixedActor = nil
 	sdkOpts := &sdk.ServerOptions{
 		Instructions: "LabNETCONF control plane. Use typed netconf_* tools; do not assume connection state. Protocol " + ProtocolVersion + ".",
 		Logger:       logger,
@@ -222,12 +245,15 @@ func (s *Server) actorFrom(ctx context.Context) app.Actor {
 		}
 		return a
 	}
-	if s != nil && s.cfg.FixedActor != nil {
-		out := *s.cfg.FixedActor
-		if out.Transport == "" {
-			out.Transport = "mcp"
+	if s != nil {
+		if pinned := s.stdioActor.Load(); pinned != nil {
+			out := *pinned
+			out.Scopes = append([]string(nil), pinned.Scopes...)
+			if out.Transport == "" {
+				out.Transport = "mcp"
+			}
+			return out
 		}
-		return out
 	}
 	if a.Transport == "" {
 		a.Transport = "mcp"
@@ -236,23 +262,45 @@ func (s *Server) actorFrom(ctx context.Context) app.Actor {
 }
 
 func (s *Server) reloadAuth() {
+	s.reloadMu.Lock()
+	defer s.reloadMu.Unlock()
 	if s.cfg.Auth == nil {
 		return
 	}
 	appSvc, ok := s.svc.(*app.App)
 	if !ok {
 		s.cfg.Auth.Replace(auth.Empty())
+		s.refreshStdioPin()
 		return
 	}
 	snap := appSvc.Active()
 	if snap == nil || snap.Canonical == nil {
 		s.cfg.Auth.Replace(auth.Empty())
+		s.refreshStdioPin()
 		return
 	}
 	next, err := auth.FromSpec(snap.Canonical.Spec.Auth)
 	if err != nil || next.RequireListen() != nil {
 		s.cfg.Auth.Replace(auth.Empty())
+		s.refreshStdioPin()
 		return
 	}
 	s.cfg.Auth.Replace(next)
+	s.refreshStdioPin()
+}
+
+// refreshStdioPin re-authenticates the startup bearer against the verifier
+// just installed. HTTP leaves the pin alone. A secret that no longer
+// authenticates clears the pin.
+func (s *Server) refreshStdioPin() {
+	if s.cfg.StdioSecret == "" {
+		return
+	}
+	p, err := s.cfg.Auth.AuthenticateBearer(s.cfg.StdioSecret)
+	if err != nil {
+		s.stdioActor.Store(nil)
+		return
+	}
+	a := actorOf(p)
+	s.stdioActor.Store(&a)
 }
