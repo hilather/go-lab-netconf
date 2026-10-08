@@ -10,7 +10,7 @@ RESTCONF `/restconf` is a **data plane** and is not in this table.
 ## Frozen capabilities
 
 REST_ONLY_PROTOCOL: health live/ready, session (`POST`/`GET`/`DELETE /v1/session`),
-metrics scrape, SPA.
+metrics scrape (`netconf.read`), SPA.
 
 PARITY_REQUIRED:
 

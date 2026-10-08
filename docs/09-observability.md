@@ -11,8 +11,9 @@ Series: `labnetconf_rpcs_total{rpc,decision}`,
 
 Never label with client IP, Authorization, Cookie, or secret bytes.
 
-`GET /v1/metrics` scrapes OpenMetrics text. Catalog:
-`api/metrics/v1alpha1.json`.
+`GET /v1/metrics` scrapes OpenMetrics text and requires a bearer or
+session with `netconf.read`. Health probes stay unauthenticated.
+Catalog: `api/metrics/v1alpha1.json`.
 
 Ready: snapshot loaded AND enabled NETCONF/RESTCONF listeners that
 are enabled have bound AND (management bound or off).

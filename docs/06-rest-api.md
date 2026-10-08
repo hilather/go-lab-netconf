@@ -2,7 +2,8 @@
 
 Frozen routes live in `05-control-plane-and-parity.md`.
 `application/problem+json`. Bearer or session+CSRF. Health is
-unauthenticated. Basic is rejected on `/v1` (401 Bearer).
+unauthenticated. `GET /v1/metrics` requires a bearer or session with
+`netconf.read`. Basic is rejected on `/v1` (401 Bearer).
 
 `GET /v1/profiles` items are `{ "name": ... }`, the same camelCase
 field as `GET /v1/profiles/{name}` and MCP `netconf_profiles_list`.

@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -241,6 +242,13 @@ func serveCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		_, _ = fmt.Fprintln(stdout, "labnetconf restconf: not bound")
 	}
 
+	var reloadMu sync.Mutex
+	reload := func() {
+		reloadDataPlane(svc, baseDir, ncs, sshSrv, rcSrv, &reloadMu, stderr)
+	}
+	svc.OnApply(reload)
+	svc.OnReset(reload)
+
 	ready := func() bool {
 		if svc.Active() == nil {
 			return false
@@ -323,6 +331,85 @@ func serveCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	shutdown()
 	_, _ = fmt.Fprintln(stdout, "labnetconf: shutting down")
 	return 0
+}
+
+// reloadDataPlaneHook is nil in production. Tests set it to overlap
+// publishers: it runs after Active and before any listener publish.
+var reloadDataPlaneHook func()
+
+// reloadDataPlane pushes the active snapshot's users and admission into
+// the running listeners. mu serializes publishers. baseDir is the
+// absolute directory of the bootstrap file. Reload failures are written
+// to stderr, the writer passed into serveCmd.
+func reloadDataPlane(svc *app.App, baseDir string, ncSrv *ncserver.Server, sshSrv *netconfssh.Server, rcSrv *restconf.Server, mu *sync.Mutex, stderr io.Writer) {
+	if mu != nil {
+		mu.Lock()
+		defer mu.Unlock()
+	}
+	if svc == nil {
+		return
+	}
+	snap := svc.Active()
+	if reloadDataPlaneHook != nil {
+		reloadDataPlaneHook()
+	}
+	if snap == nil {
+		return
+	}
+	ncUsers, sshUsers, rcUsers, err := dataPlaneUsers(svc, snap, baseDir)
+	if err != nil {
+		logDataPlaneReload(stderr, err)
+		logDataPlaneReload(stderr, failDataPlane(snap, ncSrv, sshSrv, rcSrv))
+		return
+	}
+	if ncSrv != nil {
+		ncSrv.ReplaceUsers(ncUsers)
+	}
+	if sshSrv != nil {
+		if err := sshSrv.ReplaceUsers(sshUsers); err != nil {
+			logDataPlaneReload(stderr, err)
+			logDataPlaneReload(stderr, failDataPlane(snap, ncSrv, sshSrv, rcSrv))
+			return
+		}
+		sshSrv.SetAllow(sshCIDRs(snap))
+	}
+	if rcSrv != nil {
+		rcSrv.ReplaceUsers(rcUsers)
+		if err := rcSrv.SetAdmission(restconfCIDRs(snap)); err != nil {
+			logDataPlaneReload(stderr, err)
+			logDataPlaneReload(stderr, failDataPlane(snap, ncSrv, sshSrv, rcSrv))
+			return
+		}
+	}
+}
+
+func logDataPlaneReload(stderr io.Writer, err error) {
+	if err == nil {
+		return
+	}
+	if stderr == nil {
+		stderr = io.Discard
+	}
+	_, _ = fmt.Fprintf(stderr, "labnetconf serve: data-plane reload: %v\n", err)
+}
+
+func failDataPlane(snap *snapshot.Snapshot, ncSrv *ncserver.Server, sshSrv *netconfssh.Server, rcSrv *restconf.Server) error {
+	if sshSrv != nil {
+		sshSrv.ClearUsers()
+		sshSrv.CloseConns()
+		sshSrv.SetAllow(sshCIDRs(snap))
+	}
+	var admErr error
+	if rcSrv != nil {
+		rcSrv.ReplaceUsers(nil)
+		if err := rcSrv.SetAdmission(restconfCIDRs(snap)); err != nil {
+			admErr = err
+		}
+	}
+	if ncSrv != nil {
+		ncSrv.ReplaceUsers(nil)
+	}
+	return admErr
 }
 
 func dataPlaneUsers(svc *app.App, snap *snapshot.Snapshot, baseDir string) ([]ncserver.User, []netconfssh.User, []restconf.User, error) {

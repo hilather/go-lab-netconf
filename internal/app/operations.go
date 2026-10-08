@@ -67,7 +67,12 @@ func applyOne(st *model.State, op ApplyOp, i int) error {
 		}
 		a := *op.Admission
 		if a.AllowClientCidrs != nil {
-			a.AllowClientCidrs = append([]string(nil), a.AllowClientCidrs...)
+			// make+copy keeps a present empty slice empty. append onto
+			// a nil slice drops that distinction and Normalize then
+			// fills loopback.
+			cp := make([]string, len(a.AllowClientCidrs))
+			copy(cp, a.AllowClientCidrs)
+			a.AllowClientCidrs = cp
 		}
 		st.Spec.Admission = a
 	case OpReplaceNetconfCaps:

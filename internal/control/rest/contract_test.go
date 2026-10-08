@@ -8,19 +8,27 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hilather/go-lab-netconf/internal/auth"
 	"github.com/hilather/go-lab-netconf/internal/capabilities"
 	"github.com/hilather/go-lab-netconf/internal/domainerr"
+	"github.com/hilather/go-lab-netconf/internal/model"
 	"github.com/hilather/go-lab-netconf/internal/observability"
 )
 
 func TestMetricsFrozenNames(t *testing.T) {
 	reg := observability.NewRegistry()
 	svc := bootTestApp(t)
-	s, err := New(Config{Service: svc, Metrics: reg, Ready: func() bool { return true }})
+	s, err := New(Config{
+		Service: svc,
+		Metrics: reg,
+		Ready:   func() bool { return true },
+		Auth:    auth.Static(testToken, "reader", model.RoleReader),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	req := httptest.NewRequest(http.MethodGet, "/v1/metrics", nil)
+	req.Header.Set("Authorization", "Bearer "+testToken)
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, req)
 	if w.Code != http.StatusOK {

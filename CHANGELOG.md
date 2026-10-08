@@ -8,6 +8,24 @@
 - Web development dependency `source-map-js` updates from 1.2.1 to 1.2.2 (GHSA-68fv-2mgg-jv7q, high: event-loop denial of service through indexed source-map section offsets). Lockfile only; the built web assets are byte-identical.
 - Web development dependency `undici` updates from 8.10.0 to 8.10.2 (via jsdom; GHSA-rfgv-xxqx-mfg5, GHSA-w293-vg96-wgc3 and GHSA-vp8m-p9jh-q5pm high, plus eight moderate or low undici advisories). Lockfile only; the built web assets are byte-identical.
 
+### Security
+
+- A present empty `allowClientCidrs` on `replaceAdmission` is
+  deny-all. Omitted or null still becomes loopback.
+- `GET /v1/metrics` requires `netconf.read`. Health live and ready
+  stay unauthenticated.
+- mcp-stdio keeps the startup bearer and drops that pin when the
+  secret no longer authenticates after reset or apply.
+- A successful apply or reset updates NETCONF access, RESTCONF users
+  and admission, and the SSH allow-list and credential bytes. Sessions
+  whose user, access, profile or profile datastore changed are closed.
+  Listener addresses and host keys are unchanged.
+- The tag gate accepts only the completed push CI run for that tag
+  and SHA. Only the newest tag-push run (highest databaseId) counts,
+  and a newer in-progress tag run stays pending even when an older
+  tag run is green. The tag enters the shell as an environment
+  variable.
+
 ## [1.0.0-rc.2] - 2026-09-14
 
 ### Fixed

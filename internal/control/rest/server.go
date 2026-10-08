@@ -375,7 +375,7 @@ func (w *statusWriter) status() int {
 }
 
 func isHealthCap(cap capabilities.Capability) bool {
-	return cap.ID == capabilities.HealthLive || cap.ID == capabilities.HealthReady || cap.ID == capabilities.MetricsGet
+	return cap.ID == capabilities.HealthLive || cap.ID == capabilities.HealthReady
 }
 
 func (s *Server) isLive() bool {

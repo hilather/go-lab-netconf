@@ -116,6 +116,13 @@ mutates running or startup. Candidate-only edits do not increment it.
 | replaceNetconfCaps | ui.enabled, management.address | |
 | replaceObservability | | |
 
+A present empty `allowClientCidrs` (`[]`) stays deny-all through plan
+and apply. Omitted or null still becomes loopback.
+
+`replaceUsers`, `upsertUser`, `removeUser`, and `replaceAdmission`
+reach the running NETCONF, RESTCONF, and SSH listeners. Listener
+addresses and host keys stay process-lifetime.
+
 ## Closed apply operations (1.0)
 
 `replaceProfiles`, `upsertProfile`, `removeProfile`,
