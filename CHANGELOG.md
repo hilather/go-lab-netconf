@@ -30,6 +30,11 @@
   `release-gate -require-ci` as `-tag` and `-sha`; `-tag` without
   `-sha` uses `git rev-parse HEAD`. A tag read from the environment must
   match the release tag pattern, so a branch name fails at once.
+- The tag release gate fails unless each required CI job name appears
+  exactly once in that tag run and its conclusion is success. A later
+  green copy no longer hides an earlier failure, two green copies of
+  the same name fail, and a missing job still fails. Those results
+  exit 1 and the workflow does not retry them.
 
 ### Security
 
@@ -53,6 +58,10 @@
   and a newer in-progress tag run stays pending even when an older
   tag run is green. The tag enters the shell as an environment
   variable.
+- Release checkout sets `persist-credentials: false` on both checkouts,
+  so the job token is not left in the worktree. The image build context
+  excludes `.git`, `.github`, `docs`, and every `testdata` directory
+  (`**/testdata`, including nested ones).
 
 ## [1.0.0-rc.2] - 2026-09-14
 
