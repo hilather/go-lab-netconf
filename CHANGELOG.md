@@ -8,6 +8,18 @@
 - Web development dependency `source-map-js` updates from 1.2.1 to 1.2.2 (GHSA-68fv-2mgg-jv7q, high: event-loop denial of service through indexed source-map section offsets). Lockfile only; the built web assets are byte-identical.
 - Web development dependency `undici` updates from 8.10.0 to 8.10.2 (via jsdom; GHSA-rfgv-xxqx-mfg5, GHSA-w293-vg96-wgc3 and GHSA-vp8m-p9jh-q5pm high, plus eight moderate or low undici advisories). Lockfile only; the built web assets are byte-identical.
 
+### Fixed
+
+- A `workflow_dispatch` re-gate of a release tag checks that tag when
+  started from a branch. GitHub ignores the release workflow's step-env
+  overrides of `GITHUB_SHA`, `GITHUB_REF` and `GITHUB_REF_NAME`, so the
+  gate saw the branch: from `main` it judged `main`'s own push run,
+  which could pass while the tag's run was red or missing. The workflow
+  now passes the tag and the checked-out commit to
+  `release-gate -require-ci` as `-tag` and `-sha`; `-tag` without
+  `-sha` uses `git rev-parse HEAD`. A tag read from the environment must
+  match the release tag pattern, so a branch name fails at once.
+
 ### Security
 
 - A present empty `allowClientCidrs` on `replaceAdmission` is

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -10,7 +12,7 @@ import (
 
 func TestReleaseGateAcceptsMatchingTagPush(t *testing.T) {
 	mark := installGH(t, oneRun(7, "completed", "success", "push", "v1.2.3"), viewGreen())
-	if err := requireGreenCI(); err != nil {
+	if err := requireGreenCI("", ""); err != nil {
 		t.Fatal(err)
 	}
 	assertHeadBranchRequested(t, mark)
@@ -18,7 +20,7 @@ func TestReleaseGateAcceptsMatchingTagPush(t *testing.T) {
 
 func TestReleaseGateRejectsNonTagCI(t *testing.T) {
 	mark := installGH(t, oneRun(42, "completed", "success", "pull_request", "v1.2.3"), viewGreen())
-	err := requireGreenCI()
+	err := requireGreenCI("", "")
 	if err == nil || !strings.Contains(err.Error(), "no matching run") {
 		t.Fatalf("release gate = %v, want no matching run", err)
 	}
@@ -31,7 +33,7 @@ func TestReleaseGateRejectsGreenMainWithRedTag(t *testing.T) {
 {"databaseId":20,"conclusion":"failure","status":"completed","headSha":"abc123","event":"push","headBranch":"v1.2.3"}
 ]`
 	mark := installGH(t, list, viewByID())
-	err := requireGreenCI()
+	err := requireGreenCI("", "")
 	if err == nil || strings.Contains(err.Error(), "pending") || strings.Contains(err.Error(), "no matching run") {
 		t.Fatalf("release gate = %v, want a red-job error", err)
 	}
@@ -44,7 +46,7 @@ func TestReleaseGatePendingNewerTagRun(t *testing.T) {
 {"databaseId":30,"conclusion":"","status":"in_progress","headSha":"abc123","event":"push","headBranch":"v1.2.3"}
 ]`
 	mark := installGH(t, list, viewGreen())
-	err := requireGreenCI()
+	err := requireGreenCI("", "")
 	if err == nil || !strings.Contains(err.Error(), "pending") || strings.Contains(err.Error(), "no matching run") {
 		t.Fatalf("release gate = %v, want pending", err)
 	}
@@ -55,7 +57,7 @@ func TestReleaseTagResolvesRefNameWhenRefIsBranch(t *testing.T) {
 	installGH(t, oneRun(7, "completed", "success", "push", "v1.2.3"), viewGreen())
 	t.Setenv("GITHUB_REF", "refs/heads/main")
 	t.Setenv("GITHUB_REF_NAME", "v1.2.3")
-	if err := requireGreenCI(); err != nil {
+	if err := requireGreenCI("", ""); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -64,7 +66,7 @@ func TestReleaseTagRejectsEmptyName(t *testing.T) {
 	installGH(t, oneRun(7, "completed", "success", "push", "v1.2.3"), viewGreen())
 	t.Setenv("GITHUB_REF", "refs/heads/main")
 	t.Setenv("GITHUB_REF_NAME", "")
-	err := requireGreenCI()
+	err := requireGreenCI("", "")
 	if err == nil {
 		t.Fatal("empty tag was accepted")
 	}
@@ -273,4 +275,180 @@ func readWorkflow(t *testing.T, name string) string {
 	}
 	t.Fatalf("%s not found", name)
 	return ""
+}
+
+const (
+	tagSHA    = "1111111111111111111111111111111111abcdef"
+	branchSHA = "2222222222222222222222222222222222222222"
+)
+
+// dispatchEnv is what the gate sees on workflow_dispatch from main: GitHub
+// ignores the workflow's step env for GITHUB_*, so they name the branch.
+func dispatchEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("GITHUB_REF", "refs/heads/main")
+	t.Setenv("GITHUB_REF_NAME", "main")
+	t.Setenv("GITHUB_SHA", branchSHA)
+}
+
+func tagRunAt(sha string) string {
+	return `[{"databaseId":7,"conclusion":"success","status":"completed","headSha":"` + sha + `","event":"push","headBranch":"v1.2.3"}]`
+}
+
+func listArgs(t *testing.T, mark string) string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(filepath.Dir(mark), "args"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+// mainAndTagRuns has main's green push at the branch head and the tag's
+// push at the tag commit.
+func mainAndTagRuns() string {
+	return `[{"databaseId":5,"conclusion":"success","status":"completed","headSha":"` + branchSHA + `","event":"push","headBranch":"main"},` +
+		`{"databaseId":7,"conclusion":"success","status":"completed","headSha":"` + tagSHA + `","event":"push","headBranch":"v1.2.3"}]`
+}
+
+// Before -tag/-sha, a dispatch from main resolved the tag "main" and
+// accepted main's own green push run.
+func TestReleaseGateDispatchEnvWithoutFlagsFails(t *testing.T) {
+	installGH(t, mainAndTagRuns(), viewGreen())
+	dispatchEnv(t)
+	err := requireGreenCI("", "")
+	if err == nil {
+		t.Fatal("dispatch env without -tag/-sha accepted main's push run")
+	}
+	if strings.Contains(err.Error(), "pending") || strings.Contains(err.Error(), "no matching run") {
+		t.Fatalf("branch ref looks retryable: %v", err)
+	}
+}
+
+func TestReleaseGateExplicitFlagsIgnoreMainRun(t *testing.T) {
+	mark := installGH(t, `[{"databaseId":5,"conclusion":"success","status":"completed","headSha":"`+branchSHA+`","event":"push","headBranch":"main"}]`, viewGreen())
+	dispatchEnv(t)
+	err := requireGreenCI("v1.2.3", tagSHA)
+	if err == nil || !strings.Contains(err.Error(), "no matching run") {
+		t.Fatalf("err=%v", err)
+	}
+	if args := listArgs(t, mark); !strings.Contains(args, "--commit="+tagSHA) {
+		t.Fatalf("gh args:\n%s", args)
+	}
+}
+
+func TestReleaseGateExplicitTagAndSHA(t *testing.T) {
+	for _, tag := range []string{"v1.2.3", "refs/tags/v1.2.3", " v1.2.3 "} {
+		t.Run(tag, func(t *testing.T) {
+			mark := installGH(t, tagRunAt(tagSHA), viewGreen())
+			dispatchEnv(t)
+			var errb bytes.Buffer
+			if code := run([]string{"-require-ci", "-tag", tag, "-sha", tagSHA}, &errb); code != 0 {
+				t.Fatalf("code %d: %s", code, errb.String())
+			}
+			args := listArgs(t, mark)
+			if !strings.Contains(args, "--commit="+tagSHA) || strings.Contains(args, branchSHA) {
+				t.Fatalf("gh args:\n%s", args)
+			}
+		})
+	}
+}
+
+func TestReleaseGateTagWithoutSHAUsesHEAD(t *testing.T) {
+	out, err := exec.Command("git", "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Skipf("no git HEAD: %v", err)
+	}
+	head := strings.TrimSpace(string(out))
+	mark := installGH(t, tagRunAt(head), viewGreen())
+	dispatchEnv(t)
+	if err := requireGreenCI("v1.2.3", ""); err != nil {
+		t.Fatal(err)
+	}
+	if args := listArgs(t, mark); !strings.Contains(args, "--commit="+head) || strings.Contains(args, branchSHA) {
+		t.Fatalf("gh args:\n%s", args)
+	}
+}
+
+func TestReleaseGateExplicitFlagsRejectBadValues(t *testing.T) {
+	cases := []struct{ tag, sha, want string }{
+		{"main", tagSHA, "-tag"},
+		{"v1.2.3;rm", tagSHA, "-tag"},
+		{"v1.2.3", "abc", "-sha"},
+		{"v1.2.3", strings.ToUpper(tagSHA), "-sha"},
+		{"v1.2.3", tagSHA + ";rm", "-sha"},
+		{"v1.2.3", "-h", "-sha"},
+		{"v1.2.3-pending;", tagSHA, "-tag"},
+		{"no matching run", tagSHA, "-tag"},
+		{"v1.2.3", "pending", "-sha"},
+		{"v1.2.3", "no matching run", "-sha"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.tag+"/"+tc.sha, func(t *testing.T) {
+			installGH(t, tagRunAt(tagSHA), "  echo 'gh run view must not run' >&2\n  exit 9\n")
+			dispatchEnv(t)
+			err := requireGreenCI(tc.tag, tc.sha)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("err=%v", err)
+			}
+			if strings.Contains(err.Error(), "pending") || strings.Contains(err.Error(), "no matching run") {
+				t.Fatalf("bad flag looks retryable: %v", err)
+			}
+		})
+	}
+}
+
+func TestRunUsage(t *testing.T) {
+	for _, args := range [][]string{
+		nil,
+		{"-notes-only", "-require-ci"},
+		{"-notes-only", "-notes", "x.md", "-tag", "v1.2.3"},
+		{"-notes-only", "-notes", "x.md", "-sha", tagSHA},
+		{"-require-ci", "-notes", "x.md"},
+		{"-require-ci", "extra"},
+	} {
+		var errb bytes.Buffer
+		if code := run(args, &errb); code != 2 {
+			t.Fatalf("%q: code %d", args, code)
+		}
+	}
+}
+
+// GitHub ignores step env that sets GITHUB_*, so the re-gate must pass the
+// tag and commit to release-gate explicitly.
+func TestReleaseWorkflowPassesTagAndSHA(t *testing.T) {
+	rel := readWorkflow(t, "release.yml")
+	for _, bad := range []string{"GITHUB_SHA:", "GITHUB_REF:", "GITHUB_REF_NAME:"} {
+		if strings.Contains(rel, bad) {
+			t.Errorf("release.yml sets %s in env; GitHub ignores it", strings.TrimSuffix(bad, ":"))
+		}
+	}
+	for _, want := range []string{
+		"RELEASE_TAG: ${{ steps.gate.outputs.ref }}",
+		"RELEASE_SHA: ${{ steps.rev.outputs.sha }}",
+		`go run ./scripts/release-gate -require-ci -tag "$RELEASE_TAG" -sha "$RELEASE_SHA"`,
+	} {
+		if !strings.Contains(rel, want) {
+			t.Errorf("release.yml missing %q", want)
+		}
+	}
+}
+
+// The env-path tag error is fixed text, so a ref whose name contains the
+// workflow's retry words is not retried.
+func TestEnvTagErrorDoesNotEchoRef(t *testing.T) {
+	for _, name := range []string{"pending", "no matching run", "x-pending"} {
+		t.Run(name, func(t *testing.T) {
+			installGH(t, mainAndTagRuns(), viewGreen())
+			dispatchEnv(t)
+			t.Setenv("GITHUB_REF_NAME", name)
+			err := requireGreenCI("", "")
+			if err == nil {
+				t.Fatal("branch name accepted as a tag")
+			}
+			if strings.Contains(err.Error(), "pending") || strings.Contains(err.Error(), "no matching run") {
+				t.Fatalf("env tag error looks retryable: %v", err)
+			}
+		})
+	}
 }
