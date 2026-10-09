@@ -3,7 +3,7 @@
 # (go:embed), which stay in the context.
 #
 # **/testdata matches a testdata directory at every depth: the repository
-# root testdata/ and nested corpora such as internal/config/testdata.
+# root testdata/ and any nested testdata directory.
 .git
 .github
 docs
