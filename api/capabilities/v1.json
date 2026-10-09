@@ -575,7 +575,7 @@
       "id": "sessions.list",
       "title": "List sessions",
       "version": "v1",
-      "description": "NETCONF SSH and RESTCONF HTTP sessions.",
+      "description": "NETCONF SSH sessions.",
       "requiredScopes": [
         "netconf.read"
       ],
@@ -600,7 +600,7 @@
       "id": "session.kill",
       "title": "Kill session",
       "version": "v1",
-      "description": "Drop one NETCONF or RESTCONF session by id.",
+      "description": "Drop one NETCONF session by id.",
       "requiredScopes": [
         "netconf.admin"
       ],

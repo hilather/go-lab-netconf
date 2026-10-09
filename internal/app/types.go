@@ -150,7 +150,7 @@ type UserView struct {
 	AuthorizedKeysFile string
 }
 
-// Session is one NETCONF or RESTCONF session. Empty until those listeners exist.
+// Session is one live NETCONF SSH session. RESTCONF has no session row.
 type Session struct {
 	ID      string
 	User    string

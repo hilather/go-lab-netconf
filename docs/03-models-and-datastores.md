@@ -62,7 +62,7 @@ candidate is dirty or locked, the write fails with `candidate_dirty`
 Lock: one lock per datastore **per profile-instance** (not
 process-global). Two profile-instances may hold `candidate`
 independently. lock-denied if that instance's datastore is held by
-another session. kill-session drops that session's locks.
+another session. kill-session, and admin session kill, drop that session's locks. Neither closes the SSH connection.
 
 Generation counter increments on commit and on copy-config that
 mutates running or startup. Candidate-only edits do not change

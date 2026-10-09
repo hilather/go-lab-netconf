@@ -40,7 +40,7 @@
 | discard-changes | candidate ← running |
 | validate | path + declared types only (no YANG when-must) |
 | close-session | graceful |
-| kill-session | admin session |
+| kill-session | any read-write NETCONF session; read-only gets access-denied |
 | create-subscription | stream `NETCONF`, in-process; no Dial |
 
 Subtree filter is the only filter. XPath filter is `unknown-element` / `op-not-supported`.
@@ -77,4 +77,4 @@ Wrong profile isolation: user B cannot read user A's tree.
 
 ## NAT and userland-proxy
 
-Identity is SSH/RESTCONF **user**, not client IP. Docker `userland-proxy` SNAT is a **NAT collision** only for `remoteAddr` display on sessions and notifications. It does not collapse profiles. Do not make source-preserving TCP a 1.0 readiness gate.
+Identity is SSH/RESTCONF **user**, not client IP. Docker `userland-proxy` SNAT is a **NAT collision** that does not collapse profiles. `GET /v1/sessions` returns `id`, `user`, and `profile` and does not include `remoteAddr`. Notifications do not include `remoteAddr` either. Do not make source-preserving TCP a 1.0 readiness gate.
