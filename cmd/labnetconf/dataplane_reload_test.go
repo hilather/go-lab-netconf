@@ -167,7 +167,9 @@ func TestAdmissionOnlyApplyKeepsSession(t *testing.T) {
 		t.Fatal(err)
 	}
 	proc := startServeCfg(t, cfg, nc, rc, mgmt)
-	c := openServeNETCONF(t, proc.nc)
+	cli := dialServeClient(t, proc.nc, "alice", "alice-lab-password", nil)
+	t.Cleanup(func() { _ = cli.Close() })
+	c := openNetconf(t, cli)
 	if _, err := c.Handshake(nil); err != nil {
 		t.Fatal(err)
 	}
@@ -185,6 +187,11 @@ func TestAdmissionOnlyApplyKeepsSession(t *testing.T) {
 	if !rep.OK {
 		t.Fatalf("admission-only apply denied edit-config: %+v", rep.Errors)
 	}
+	extra, err := cli.NewSession()
+	if err != nil {
+		t.Fatalf("admission-only apply closed the SSH connection: %v", err)
+	}
+	_ = extra.Close()
 }
 
 func TestReloadDataPlaneRelativePasswordFile(t *testing.T) {

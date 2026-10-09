@@ -245,7 +245,7 @@
     },
     "/v1/sessions": {
       "get": {
-        "description": "NETCONF SSH and RESTCONF HTTP sessions.",
+        "description": "NETCONF SSH sessions.",
         "operationId": "sessions.list",
         "summary": "List sessions",
         "tags": [
@@ -255,7 +255,7 @@
     },
     "/v1/sessions/{id}:kill": {
       "post": {
-        "description": "Drop one NETCONF or RESTCONF session by id.",
+        "description": "Drop one NETCONF session by id.",
         "operationId": "session.kill",
         "summary": "Kill session",
         "tags": [

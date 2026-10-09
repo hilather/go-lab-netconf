@@ -24,9 +24,13 @@ to remote” control.
 | `/users` | Data-plane users; secret file contents are never shown |
 | `/datastores` | running / candidate / startup + commit / discard / :set |
 | `/notifications` | Inbox + `POST /v1/notifications:wait` |
-| `/sessions` | NETCONF SSH and RESTCONF HTTP session list |
+| `/sessions` | NETCONF SSH session list (`id`, `user`, `profile`) |
 | `/apply` | Plan / apply / gated reset (`netconf.admin`) |
 | `/audit` | In-process audit ring (`netconf.audit.read`) |
+
+The embedded SPA still says the sessions page includes RESTCONF
+sessions. Updating that copy needs a web embed rebuild and is a
+follow-up.
 
 Leaf edit helper writes **candidate** via `POST /v1/datastores/{profile}/{store}:set`.
 Commit publishes to running. Discard restores candidate from running.

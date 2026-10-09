@@ -18,8 +18,13 @@
   secret no longer authenticates after reset or apply.
 - A successful apply or reset updates NETCONF access, RESTCONF users
   and admission, and the SSH allow-list and credential bytes. Sessions
-  whose user, access, profile or profile datastore changed are closed.
+  whose user, access, profile or profile datastore changed are closed,
+  and SSH connections of users whose password or authorized keys changed are closed.
   Listener addresses and host keys are unchanged.
+- `GET /v1/sessions` and `POST /v1/sessions/{id}:kill`, and the MCP
+  tools `netconf_sessions_list` and `netconf_session_kill`, list and
+  end live NETCONF sessions. Admin kill does not close the SSH
+  connection.
 - The tag gate accepts only the completed push CI run for that tag
   and SHA. Only the newest tag-push run (highest databaseId) counts,
   and a newer in-progress tag run stays pending even when an older

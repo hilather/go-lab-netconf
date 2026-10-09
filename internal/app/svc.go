@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
 	"github.com/hilather/go-lab-netconf/internal/audit"
 	"github.com/hilather/go-lab-netconf/internal/compiler"
@@ -44,6 +45,7 @@ type App struct {
 
 	profileHandles map[string]datastore.Handle
 	userHandles    map[string]datastore.Handle
+	sessionTable   atomic.Pointer[sessionTableHolder]
 }
 
 var _ Service = (*App)(nil)

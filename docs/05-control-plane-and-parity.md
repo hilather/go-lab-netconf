@@ -43,6 +43,16 @@ PARITY_REQUIRED:
 | `GET /v1/preview/get` | `netconf_preview_get` | `netconf.read` |
 | `GET /v1/audit` | `netconf_audit_query` | `netconf.audit.read` |
 
+`GET /v1/sessions` lists live NETCONF SSH sessions (`id`, `user`,
+`profile`). RESTCONF has no session row. `POST /v1/sessions/{id}:kill`
+ends that NETCONF session and drops its datastore locks. It does not
+close the SSH connection. Changing a user's password or authorized
+keys closes that user's SSH connections. An apply that leaves those
+credentials unchanged does not close them for credential rotation.
+Admission changes still close connections that no longer match the
+CIDR list. Reset rebuilds every profile datastore handle and closes
+NETCONF sessions even when credentials are unchanged.
+
 Resources: `labnetconf://state`, `labnetconf://profiles/{name}`,
 `labnetconf://datastores/{profile}/{store}`,
 `labnetconf://notifications/{id}`, `labnetconf://schema/config`.

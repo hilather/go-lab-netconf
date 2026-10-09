@@ -191,7 +191,7 @@ func catalog() []Capability {
 		},
 		{
 			ID: SessionsList, Title: "List sessions", Version: VersionTag,
-			Description:    "NETCONF SSH and RESTCONF HTTP sessions.",
+			Description:    "NETCONF SSH sessions.",
 			RequiredScopes: []string{ScopeNetconfRead}, Idempotent: true,
 			REST:           []RESTBinding{{Method: "GET", Path: "/v1/sessions"}},
 			MCP:            &MCPBinding{Tools: []string{"netconf_sessions_list"}},
@@ -199,7 +199,7 @@ func catalog() []Capability {
 		},
 		{
 			ID: SessionKill, Title: "Kill session", Version: VersionTag,
-			Description:    "Drop one NETCONF or RESTCONF session by id.",
+			Description:    "Drop one NETCONF session by id.",
 			RequiredScopes: []string{ScopeNetconfAdmin}, Mutating: true,
 			REST:           []RESTBinding{{Method: "POST", Path: "/v1/sessions/{id}:kill"}},
 			MCP:            &MCPBinding{Tools: []string{"netconf_session_kill"}},

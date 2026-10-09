@@ -154,6 +154,7 @@ func serveCmd(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 			return svc.Datastore(u.Profile)
 		},
 	})
+	svc.SetSessionTable(ncSessions{srv: ncs})
 
 	var ncBound, rcBound atomic.Bool
 	var sshSrv *netconfssh.Server
@@ -514,4 +515,27 @@ func restconfCIDRs(snap *snapshot.Snapshot) []string {
 		out = append(out, p.String())
 	}
 	return out
+}
+
+// ncSessions adapts the NETCONF session table. Kill ends that NETCONF
+// session. It does not close the SSH connection.
+type ncSessions struct{ srv *ncserver.Server }
+
+func (n ncSessions) ListSessions() []app.Session {
+	if n.srv == nil {
+		return []app.Session{}
+	}
+	rows := n.srv.Sessions()
+	out := make([]app.Session, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, app.Session{ID: row.ID, User: row.Username, Profile: row.Profile})
+	}
+	return out
+}
+
+func (n ncSessions) KillSession(id string) bool {
+	if n.srv == nil {
+		return false
+	}
+	return n.srv.Kill(id) == nil
 }

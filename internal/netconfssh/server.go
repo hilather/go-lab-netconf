@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -38,20 +39,34 @@ type Config struct {
 
 // Server is a TCP SSH listener that accepts only subsystem netconf.
 type Server struct {
-	cfg    Config
-	sshCfg *ssh.ServerConfig
-	users  atomic.Pointer[map[string]*loadedUser]
-	allow  atomic.Pointer[[]netip.Prefix]
-	ln     net.Listener
+	cfg     Config
+	sshCfg  *ssh.ServerConfig
+	users   atomic.Pointer[map[string]*loadedUser]
+	allow   atomic.Pointer[[]netip.Prefix]
+	nextGen atomic.Uint64
+	ln      net.Listener
 
 	mu    sync.Mutex
-	conns map[net.Conn]struct{}
+	conns map[net.Conn]*trackedConn
 }
 
 type loadedUser struct {
 	name     string
 	password []byte
-	keys     []ssh.PublicKey
+	keys     []authKey
+	gen      uint64
+}
+
+type authKey struct {
+	key     ssh.PublicKey
+	options []string
+}
+
+// trackedConn is one accepted TCP connection. user is empty until
+// authentication finishes; rotation ignores those entries.
+type trackedConn struct {
+	user string
+	gen  uint64
 }
 
 const subsystemNetconf = "netconf"
@@ -85,10 +100,10 @@ func New(cfg Config) (*Server, error) {
 
 	s := &Server{
 		cfg:    cfg,
-		conns:  map[net.Conn]struct{}{},
+		conns:  map[net.Conn]*trackedConn{},
 		sshCfg: &ssh.ServerConfig{ServerVersion: "SSH-2.0-labnetconf"},
 	}
-	s.storeUsers(users)
+	s.publishUsers(users)
 	s.SetAllow(cfg.AllowCIDRs)
 	s.sshCfg.AddHostKey(signer)
 	s.sshCfg.PasswordCallback = s.passwordAuth
@@ -151,7 +166,13 @@ func (s *Server) SetAllow(cidrs []netip.Prefix) {
 	}
 }
 
-// ReplaceUsers reloads credential files. On error the previous map stays.
+// ReplaceUsers reloads credential files and swaps the live map. On error
+// the previous map stays and no connection is closed. A user whose
+// password bytes or authorized-key multiset changed gets a new
+// generation, and SSH connections authenticated under an older
+// generation are closed after the map is published. Connections that
+// have not finished authentication stay up and authenticate against
+// the new map.
 func (s *Server) ReplaceUsers(users []User) error {
 	if s == nil {
 		return fmt.Errorf("netconfssh: nil server")
@@ -160,7 +181,9 @@ func (s *Server) ReplaceUsers(users []User) error {
 	if err != nil {
 		return err
 	}
-	s.storeUsers(next)
+	for _, c := range s.publishUsers(next) {
+		_ = c.Close()
+	}
 	return nil
 }
 
@@ -184,7 +207,7 @@ func (s *Server) CloseConns() {
 	for c := range s.conns {
 		conns = append(conns, c)
 	}
-	s.conns = map[net.Conn]struct{}{}
+	s.conns = map[net.Conn]*trackedConn{}
 	s.mu.Unlock()
 	for _, c := range conns {
 		_ = c.Close()
@@ -193,6 +216,62 @@ func (s *Server) CloseConns() {
 
 func (s *Server) storeUsers(users map[string]*loadedUser) {
 	s.users.Store(&users)
+}
+
+// publishUsers assigns generations, stores next, and returns connections
+// whose user and generation are no longer current. Callers close those
+// connections after this returns. The generation counter starts at 1.
+func (s *Server) publishUsers(next map[string]*loadedUser) []net.Conn {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	old := s.userMap()
+	for _, nu := range next {
+		if ou, ok := old[nu.name]; ok && ou.gen != 0 && credentialsEqual(ou, nu) {
+			nu.gen = ou.gen
+			continue
+		}
+		nu.gen = s.nextGen.Add(1)
+	}
+	s.users.Store(&next)
+	var drop []net.Conn
+	for c, info := range s.conns {
+		if info == nil || info.user == "" {
+			continue
+		}
+		u := next[info.user]
+		if u == nil || u.gen != info.gen {
+			drop = append(drop, c)
+		}
+	}
+	return drop
+}
+
+// bindAuth records user and generation on a tracked connection. It
+// returns true when the connection must be closed. A missing or
+// unparsable generation, including 0, is closed and is not stored.
+func (s *Server) bindAuth(conn net.Conn, user, genStr string) bool {
+	gen, err := strconv.ParseUint(genStr, 10, 64)
+	if err != nil || gen == 0 || user == "" {
+		return true
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	info := s.conns[conn]
+	if info == nil {
+		return true
+	}
+	info.user = user
+	info.gen = gen
+	live := s.userMap()
+	u := live[user]
+	return u == nil || u.gen != gen
+}
+
+func credGenOf(p *ssh.Permissions) string {
+	if p == nil || p.Extensions == nil {
+		return ""
+	}
+	return p.Extensions[credGenExt]
 }
 
 func (s *Server) userMap() map[string]*loadedUser {
@@ -257,6 +336,13 @@ func (s *Server) handle(ctx context.Context, conn net.Conn) {
 		return
 	}
 	defer func() { _ = sshConn.Close() }()
+	if s.bindAuth(conn, sshConn.User(), credGenOf(sshConn.Permissions)) {
+		// The mux blocks once its request or channel buffer fills.
+		// Discard both before Close so a pipelined client cannot leak it.
+		go ssh.DiscardRequests(reqs)
+		go rejectIncoming(chans)
+		return
+	}
 	go ssh.DiscardRequests(reqs)
 
 	for newCh := range chans {
@@ -304,7 +390,9 @@ func (s *Server) track(c net.Conn, add bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if add {
-		s.conns[c] = struct{}{}
+		if _, ok := s.conns[c]; !ok {
+			s.conns[c] = &trackedConn{}
+		}
 		return
 	}
 	delete(s.conns, c)
@@ -325,5 +413,11 @@ func discardChannelRequests(reqs <-chan *ssh.Request) {
 		if req.WantReply {
 			_ = req.Reply(false, nil)
 		}
+	}
+}
+
+func rejectIncoming(chans <-chan ssh.NewChannel) {
+	for ch := range chans {
+		_ = ch.Reject(ssh.ConnectionFailed, "closed")
 	}
 }

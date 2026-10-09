@@ -3,7 +3,10 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"sort"
+	"strconv"
 
+	"github.com/hilather/go-lab-netconf/internal/audit"
 	"github.com/hilather/go-lab-netconf/internal/buildinfo"
 	"github.com/hilather/go-lab-netconf/internal/capabilities"
 	"github.com/hilather/go-lab-netconf/internal/config"
@@ -178,13 +181,64 @@ func (s *App) ListUsers(ctx context.Context) ([]UserView, error) {
 	return out, nil
 }
 
+// SessionTable is the live NETCONF session table. KillSession reports
+// whether id was in the table. Closing a session does not close the
+// SSH connection that opened it.
+type SessionTable interface {
+	ListSessions() []Session
+	KillSession(id string) bool
+}
+
+type sessionTableHolder struct {
+	t SessionTable
+}
+
+// SetSessionTable publishes the table ListSessions and KillSession read.
+// Nil restores the empty-table behavior: a nil list and NotFound.
+func (s *App) SetSessionTable(t SessionTable) {
+	if s == nil {
+		return
+	}
+	if t == nil {
+		s.sessionTable.Store(nil)
+		return
+	}
+	s.sessionTable.Store(&sessionTableHolder{t: t})
+}
+
+func (s *App) currentSessions() SessionTable {
+	if s == nil {
+		return nil
+	}
+	h := s.sessionTable.Load()
+	if h == nil {
+		return nil
+	}
+	return h.t
+}
+
+// ListSessions returns live NETCONF sessions. A nil table returns a nil
+// slice. A set table returns a non-nil slice sorted by numeric id.
 func (s *App) ListSessions(ctx context.Context) ([]Session, error) {
 	if err := s.requireCtx(ctx); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	table := s.currentSessions()
+	if table == nil {
+		return nil, nil
+	}
+	in := table.ListSessions()
+	out := make([]Session, len(in))
+	copy(out, in)
+	sort.Slice(out, func(i, j int) bool {
+		return sessionIDLess(out[i].ID, out[j].ID)
+	})
+	return out, nil
 }
 
+// KillSession ends one NETCONF session and audits session.kill with the
+// id in Reason. It does not close the SSH connection. An empty id is
+// ValidationFailed. An unknown id is NotFound and is not audited.
 func (s *App) KillSession(ctx context.Context, id string) error {
 	if err := s.requireCtx(ctx); err != nil {
 		return err
@@ -193,5 +247,32 @@ func (s *App) KillSession(ctx context.Context, id string) error {
 		return domainerr.ValidationFailed("id is required",
 			domainerr.FieldViolation{Path: "id", Code: "required", Message: "id is required"})
 	}
-	return domainerr.NotFound("session " + id + " not found")
+	table := s.currentSessions()
+	if table == nil || !table.KillSession(id) {
+		return domainerr.NotFound("session " + id + " not found")
+	}
+	s.recordAudit(ctx, audit.Event{
+		Capability: string(capabilities.SessionKill),
+		Reason:     id,
+		Result:     audit.ResultOK,
+	})
+	return nil
+}
+
+func sessionIDLess(a, b string) bool {
+	ai, aerr := strconv.ParseUint(a, 10, 64)
+	bi, berr := strconv.ParseUint(b, 10, 64)
+	switch {
+	case aerr == nil && berr == nil:
+		if ai != bi {
+			return ai < bi
+		}
+		return a < b
+	case aerr == nil:
+		return true
+	case berr == nil:
+		return false
+	default:
+		return a < b
+	}
 }
