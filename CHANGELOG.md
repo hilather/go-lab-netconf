@@ -18,8 +18,9 @@
   checkout. `release-gate` exits 75 only when that tag's CI run is
   missing or not completed, and the workflow retries only status 75.
   A pre-release tag such as `v1.0.0-pending` does not make any other
-  error retry. `publish-image` checks out the same canonical tag and
-  records the peeled commit.
+  error retry. `publish-image` checks out the same canonical tag,
+  records the peeled commit, and builds only the commit `tag-gate`
+  approved.
 - A `workflow_dispatch` re-gate of a release tag checks that tag when
   started from a branch. GitHub ignores the release workflow's step-env
   overrides of `GITHUB_SHA`, `GITHUB_REF` and `GITHUB_REF_NAME`, so the

@@ -416,7 +416,8 @@ func TestRunUsage(t *testing.T) {
 
 // GitHub ignores step env that sets GITHUB_*, so the re-gate must pass the
 // tag and peeled commit to release-gate explicitly. Checkout is only the
-// canonical tag, and the workflow retries only exit 75.
+// canonical tag, and the workflow retries only exit 75. publish-image
+// builds only the commit tag-gate approved.
 func TestWorkflowContract(t *testing.T) {
 	rel := readWorkflow(t, "release.yml")
 	for _, bad := range []string{"GITHUB_SHA:", "GITHUB_REF:", "GITHUB_REF_NAME:"} {
@@ -437,6 +438,9 @@ func TestWorkflowContract(t *testing.T) {
 	}
 	if got := strings.Count(rel, "re='"+releaseTagPatternSrc+"'"); got != 4 {
 		t.Fatalf("shell tag pattern count = %d, want 4", got)
+	}
+	if got := strings.Count(rel, `refs/tags/*) ref="${ref#refs/tags/}" ;;`); got != 4 {
+		t.Fatalf("refs/tags strip count = %d, want 4", got)
 	}
 	if strings.Contains(rel, `^v[0-9A-Za-z.+-]+$`) {
 		t.Fatal("old tag pattern still present")
@@ -489,15 +493,36 @@ func TestWorkflowContract(t *testing.T) {
 	if gateCanon < 0 || gateCheckout < 0 || gateCanon > gateCheckout {
 		t.Fatal("tag-gate: canonicalize step must precede checkout")
 	}
-	if !strings.Contains(tagGate, "refs/tags/${ref}^{commit}") || !strings.Contains(tagGate, `if [ "$head" != "$sha" ]; then`) {
+	headMismatch := `if [ "$head" != "$sha" ]; then
+            echo "HEAD ${head} is not the peeled commit ${sha} of ${ref}" >&2
+            exit 1
+          fi`
+	gatedMismatch := `if [ -z "$GATED_SHA" ] || [ "$ref" != "$GATED_REF" ] || [ "$sha" != "$GATED_SHA" ]; then
+            echo "tag ${ref} commit ${sha} is not tag-gate ref ${GATED_REF} commit ${GATED_SHA}" >&2
+            exit 1
+          fi`
+	outKey := "\n    outputs:\n      sha: ${{ steps.rev.outputs.sha }}\n      ref: ${{ steps.rev.outputs.ref }}\n"
+	stepsKey := "\n    steps:\n"
+	outAt := strings.Index(tagGate, outKey)
+	stepsAt := strings.Index(tagGate, stepsKey)
+	if outAt < 0 || stepsAt < 0 || outAt > stepsAt {
+		t.Fatal("tag-gate: outputs must expose steps.rev sha and ref")
+	}
+	if !strings.Contains(tagGate, "refs/tags/${ref}^{commit}") || !strings.Contains(tagGate, headMismatch) {
 		t.Fatal("tag-gate: missing peel")
+	}
+	if !strings.Contains(publish, headMismatch) {
+		t.Fatal("publish-image: HEAD mismatch check is missing its exit 1")
 	}
 	publishOrder := []string{
 		canonStep,
 		checkoutStep,
 		"ref: refs/tags/${{ steps.tag.outputs.ref }}",
+		"GATED_SHA: ${{ needs.tag-gate.outputs.sha }}",
+		"GATED_REF: ${{ needs.tag-gate.outputs.ref }}",
 		"refs/tags/${ref}^{commit}",
-		`if [ "$head" != "$sha" ]; then`,
+		headMismatch,
+		gatedMismatch,
 		"VERSION=${{ steps.tag.outputs.ref }}",
 		"COMMIT=${{ steps.rev.outputs.sha }}",
 		"RELEASE_REF: ${{ steps.tag.outputs.ref }}",
@@ -643,8 +668,10 @@ func TestExitCodes(t *testing.T) {
 	t.Run("gh list fails", func(t *testing.T) {
 		installGHListFails(t)
 		var errb bytes.Buffer
-		if code := run([]string{"-require-ci", "-tag", "v1.0.0-pending", "-sha", tagSHA}, &errb); code != 1 {
-			t.Fatalf("code %d\n%s", code, errb.String())
+		code := run([]string{"-require-ci", "-tag", "v1.0.0-pending", "-sha", tagSHA}, &errb)
+		msg := errb.String()
+		if code != 1 || strings.HasPrefix(msg, "release-gate: pending") || strings.HasPrefix(msg, "release-gate: no matching run") {
+			t.Fatalf("code %d\n%s", code, msg)
 		}
 	})
 	t.Run("prerelease in progress", func(t *testing.T) {

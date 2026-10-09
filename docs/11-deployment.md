@@ -26,4 +26,5 @@ Checkout is only `refs/tags/<tag>`. The job fails unless HEAD is
 `-sha`. The gate exits 75 while the tag's own push run is missing
 or not completed. The workflow retries only status 75. The ref is
 not interpolated into `run:`. `publish-image` checks out the same
-canonical tag and runs only on a tag push.
+canonical tag, runs only on a tag push, and builds only the commit
+`tag-gate` approved.
