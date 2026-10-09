@@ -568,7 +568,7 @@ func checkConcurrencyBlock(t *testing.T, n *yaml.Node) {
 	}
 	if len(cancels) == 1 {
 		tag := cancels[0].ShortTag()
-		if tag != "!!bool" || cancels[0].Value != "false" {
+		if cancels[0].Kind != yaml.ScalarNode || tag != "!!bool" || cancels[0].Value != "false" {
 			t.Errorf("concurrency cancel-in-progress tag=%s value=%q, want !!bool \"false\"", tag, cancels[0].Value)
 		}
 	}
@@ -1082,9 +1082,14 @@ func installGHListFails(t *testing.T) {
 }
 
 func TestReleaseYAMLAliasIssues(t *testing.T) {
-	cases := []struct{ name, doc string }{
-		{"alias bool", "flag: &false true\nconcurrency:\n  group: x\n  cancel-in-progress: *false\n"},
-		{"merge job concurrency", "base: &b\n  concurrency: x\njobs:\n  publish-image:\n    <<: *b\n    runs-on: ubuntu-latest\n"},
+	cases := []struct {
+		name, doc string
+		want      []string
+	}{
+		{"alias bool", "flag: &false true\nconcurrency:\n  group: x\n  cancel-in-progress: *false\n",
+			[]string{".flag: anchor &false is not allowed", ".concurrency.cancel-in-progress: alias *false is not allowed"}},
+		{"merge job concurrency", "base: &b\n  concurrency: x\njobs:\n  publish-image:\n    <<: *b\n    runs-on: ubuntu-latest\n",
+			[]string{".base: anchor &b is not allowed", "merge key << is not allowed", ".jobs.publish-image.<<: alias *b is not allowed"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1092,10 +1097,11 @@ func TestReleaseYAMLAliasIssues(t *testing.T) {
 			if err := yaml.Unmarshal([]byte(tc.doc), &doc); err != nil {
 				t.Fatal(err)
 			}
-			if got := releaseYAMLAliasIssues(doc.Content[0], ""); len(got) == 0 {
-				t.Fatal("no issues, want anchor/alias/merge rejected")
-			} else {
-				t.Logf("issues: %q", got)
+			got := strings.Join(releaseYAMLAliasIssues(doc.Content[0], ""), "\n")
+			for _, w := range tc.want {
+				if !strings.Contains(got, w) {
+					t.Errorf("issues %q missing %q", got, w)
+				}
 			}
 		})
 	}
