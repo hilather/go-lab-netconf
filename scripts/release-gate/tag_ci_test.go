@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -260,6 +261,53 @@ func jobsJSON(unitConclusion string) string {
 	return b.String()
 }
 
+// viewJobs builds a gh run view jobs document. A required name listed in
+// conclusions is emitted once per conclusion, in slice order. Every other
+// required name is one success, except skip, which is omitted. A conclusions
+// key that is not a required name is appended.
+func viewJobs(conclusions map[string][]string, skip string) string {
+	required := make(map[string]struct{}, len(requiredCIJobs))
+	for _, name := range requiredCIJobs {
+		required[name] = struct{}{}
+	}
+	type one struct{ name, conclusion string }
+	var jobs []one
+	for _, name := range requiredCIJobs {
+		if name == skip {
+			continue
+		}
+		cs, ok := conclusions[name]
+		if !ok {
+			cs = []string{"success"}
+		}
+		for _, c := range cs {
+			jobs = append(jobs, one{name, c})
+		}
+	}
+	var extras []string
+	for name := range conclusions {
+		if _, ok := required[name]; !ok {
+			extras = append(extras, name)
+		}
+	}
+	sort.Strings(extras)
+	for _, name := range extras {
+		for _, c := range conclusions[name] {
+			jobs = append(jobs, one{name, c})
+		}
+	}
+	var b strings.Builder
+	b.WriteString(`{"jobs":[`)
+	for i, j := range jobs {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		fmt.Fprintf(&b, `{"name":%q,"conclusion":%q}`, j.name, j.conclusion)
+	}
+	b.WriteString("]}")
+	return b.String()
+}
+
 func readWorkflow(t *testing.T, name string) string {
 	t.Helper()
 	dir, err := os.Getwd()
@@ -458,6 +506,26 @@ func TestWorkflowContract(t *testing.T) {
 	if got := strings.Count(rel, "ref: refs/tags/${{ steps.tag.outputs.ref }}"); got != 2 {
 		t.Fatalf("canonical checkout ref count = %d, want 2", got)
 	}
+	checkouts := strings.Split(rel, "uses: actions/checkout@")
+	if len(checkouts) != 3 {
+		t.Fatalf("actions/checkout steps = %d, want 2", len(checkouts)-1)
+	}
+	for i, chunk := range checkouts[1:] {
+		if nl := strings.Index(chunk, "\n      - "); nl >= 0 {
+			chunk = chunk[:nl]
+		}
+		cred := strings.Index(chunk, "persist-credentials: false")
+		refAt := strings.Index(chunk, "ref: refs/tags/${{ steps.tag.outputs.ref }}")
+		if cred < 0 || refAt < 0 || cred > refAt {
+			t.Fatalf("checkout %d: persist-credentials: false must sit before the tag ref", i+1)
+		}
+	}
+	if got := strings.Count(rel, "persist-credentials: false"); got != 2 {
+		t.Fatalf("persist-credentials: false count = %d, want 2", got)
+	}
+	if strings.Contains(rel, "persist-credentials: true") {
+		t.Fatal("release.yml sets persist-credentials: true")
+	}
 	for _, absent := range []string{
 		"ref: ${{ github.event.inputs.ref || github.ref }}",
 		"ref: ${{ github.ref }}",
@@ -517,6 +585,7 @@ func TestWorkflowContract(t *testing.T) {
 	publishOrder := []string{
 		canonStep,
 		checkoutStep,
+		"persist-credentials: false",
 		"ref: refs/tags/${{ steps.tag.outputs.ref }}",
 		"GATED_SHA: ${{ needs.tag-gate.outputs.sha }}",
 		"GATED_REF: ${{ needs.tag-gate.outputs.ref }}",
@@ -690,6 +759,51 @@ func TestExitCodes(t *testing.T) {
 		var errb bytes.Buffer
 		code := run([]string{"-require-ci", "-tag", "vpending", "-sha", tagSHA}, &errb)
 		if code != 1 || strings.Contains(errb.String(), "vpending") {
+			t.Fatalf("code %d\n%s", code, errb.String())
+		}
+	})
+	t.Run("duplicate failure then success", func(t *testing.T) {
+		body := "  cat <<'EOF'\n" + viewJobs(map[string][]string{"unit": {"failure", "success"}}, "") + "\nEOF\n"
+		installGH(t, listJSON(7, "completed", "success", "v1.2.3", tagSHA), body)
+		var errb bytes.Buffer
+		code := run([]string{"-require-ci", "-tag", "v1.2.3", "-sha", tagSHA}, &errb)
+		msg := errb.String()
+		if code != 1 || code == exitRetryable ||
+			!strings.Contains(msg, "exactly once") || !strings.Contains(msg, "unit=failure") ||
+			strings.HasPrefix(msg, "release-gate: pending") || strings.HasPrefix(msg, "release-gate: no matching run") {
+			t.Fatalf("code %d\n%s", code, msg)
+		}
+	})
+	t.Run("duplicate both success", func(t *testing.T) {
+		body := "  cat <<'EOF'\n" + viewJobs(map[string][]string{"unit": {"success", "success"}}, "") + "\nEOF\n"
+		installGH(t, listJSON(7, "completed", "success", "v1.2.3", tagSHA), body)
+		var errb bytes.Buffer
+		code := run([]string{"-require-ci", "-tag", "v1.2.3", "-sha", tagSHA}, &errb)
+		msg := errb.String()
+		if code != 1 || code == exitRetryable ||
+			!strings.Contains(msg, "exactly once") || strings.Contains(msg, "unit=failure") ||
+			strings.HasPrefix(msg, "release-gate: pending") || strings.HasPrefix(msg, "release-gate: no matching run") {
+			t.Fatalf("code %d\n%s", code, msg)
+		}
+	})
+	t.Run("missing job", func(t *testing.T) {
+		body := "  cat <<'EOF'\n" + viewJobs(nil, "web") + "\nEOF\n"
+		installGH(t, listJSON(7, "completed", "success", "v1.2.3", tagSHA), body)
+		var errb bytes.Buffer
+		code := run([]string{"-require-ci", "-tag", "v1.2.3", "-sha", tagSHA}, &errb)
+		msg := errb.String()
+		if code != 1 || code == exitRetryable ||
+			!strings.Contains(msg, "web=missing") || !strings.Contains(msg, "not green") ||
+			strings.HasPrefix(msg, "release-gate: pending") || strings.HasPrefix(msg, "release-gate: no matching run") {
+			t.Fatalf("code %d\n%s", code, msg)
+		}
+	})
+	t.Run("extra failed job ignored", func(t *testing.T) {
+		body := "  cat <<'EOF'\n" + viewJobs(map[string][]string{"apidiff": {"failure"}}, "") + "\nEOF\n"
+		installGH(t, listJSON(7, "completed", "success", "v1.2.3", tagSHA), body)
+		var errb bytes.Buffer
+		code := run([]string{"-require-ci", "-tag", "v1.2.3", "-sha", tagSHA}, &errb)
+		if code != 0 {
 			t.Fatalf("code %d\n%s", code, errb.String())
 		}
 	})
