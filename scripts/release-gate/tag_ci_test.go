@@ -464,6 +464,122 @@ func TestRunUsage(t *testing.T) {
 	}
 }
 
+// releaseGroupExpr is the workflow concurrency group value, without the
+// "group: " prefix.
+const releaseGroupExpr = "release-${{ github.workflow }}-${{ startsWith(github.event.inputs.ref || github.ref, 'refs/') && (github.event.inputs.ref || github.ref) || format('refs/tags/{0}', github.event.inputs.ref) }}"
+
+// checkReleaseWorkflowConcurrency is the concurrency authority for release.yml.
+// The node walk does not see # comments. Callers keep a raw absent-list so
+// the old group string still fails when it appears only in a comment.
+func checkReleaseWorkflowConcurrency(t *testing.T, rel string) {
+	t.Helper()
+	var doc yaml.Node
+	if err := yaml.Unmarshal([]byte(rel), &doc); err != nil {
+		t.Fatalf("release.yml: %v", err)
+	}
+	if doc.Kind != yaml.DocumentNode || len(doc.Content) != 1 {
+		t.Fatalf("release.yml document kind=%d content=%d, want one document root", doc.Kind, len(doc.Content))
+	}
+	root := doc.Content[0]
+	if root.Kind != yaml.MappingNode {
+		t.Fatalf("release.yml root kind=%d, want a mapping", root.Kind)
+	}
+
+	var conc, jobs []*yaml.Node
+	for i := 0; i+1 < len(root.Content); i += 2 {
+		switch root.Content[i].Value {
+		case "concurrency":
+			conc = append(conc, root.Content[i+1])
+		case "jobs":
+			jobs = append(jobs, root.Content[i+1])
+		}
+	}
+	if len(conc) != 1 {
+		parsed := make([]string, len(conc))
+		for i, n := range conc {
+			parsed[i] = formatYAMLValue(n)
+		}
+		t.Errorf("root concurrency keys = %d, want 1; parsed [%s]", len(conc), strings.Join(parsed, "; "))
+	} else {
+		checkConcurrencyBlock(t, conc[0])
+	}
+	if len(jobs) == 0 {
+		t.Errorf("root jobs keys = 0, want a jobs mapping")
+	}
+	for _, n := range jobs {
+		checkJobsHaveNoConcurrency(t, n)
+	}
+}
+
+func checkConcurrencyBlock(t *testing.T, n *yaml.Node) {
+	t.Helper()
+	if n.Kind != yaml.MappingNode {
+		t.Errorf("concurrency %s, want a mapping with group and cancel-in-progress", formatYAMLValue(n))
+		return
+	}
+	pairs := len(n.Content) / 2
+	var groups, cancels []*yaml.Node
+	keys := make([]string, 0, pairs)
+	for i := 0; i+1 < len(n.Content); i += 2 {
+		k, v := n.Content[i], n.Content[i+1]
+		keys = append(keys, k.Value)
+		switch k.Value {
+		case "group":
+			groups = append(groups, v)
+		case "cancel-in-progress":
+			cancels = append(cancels, v)
+		}
+	}
+	if pairs != 2 || len(groups) != 1 || len(cancels) != 1 || len(n.Content) != 4 {
+		t.Errorf("concurrency pairs = %d keys = %q parsed %s, want exactly group and cancel-in-progress", pairs, keys, formatYAMLValue(n))
+	}
+	if len(groups) == 1 && groups[0].Value != releaseGroupExpr {
+		t.Errorf("concurrency group = %q, want %q", groups[0].Value, releaseGroupExpr)
+	}
+	if len(cancels) == 1 {
+		tag := cancels[0].ShortTag()
+		if tag != "!!bool" || cancels[0].Value != "false" {
+			t.Errorf("concurrency cancel-in-progress tag=%s value=%q, want !!bool \"false\"", tag, cancels[0].Value)
+		}
+	}
+}
+
+func checkJobsHaveNoConcurrency(t *testing.T, jobs *yaml.Node) {
+	t.Helper()
+	if jobs.Kind != yaml.MappingNode {
+		t.Errorf("jobs %s, want a mapping of job names", formatYAMLValue(jobs))
+		return
+	}
+	for i := 0; i+1 < len(jobs.Content); i += 2 {
+		name, job := jobs.Content[i].Value, jobs.Content[i+1]
+		if job.Kind != yaml.MappingNode {
+			t.Errorf("job %s %s, want a mapping", name, formatYAMLValue(job))
+			continue
+		}
+		for j := 0; j+1 < len(job.Content); j += 2 {
+			if job.Content[j].Value != "concurrency" {
+				continue
+			}
+			t.Errorf("job %s has a concurrency key: %s", name, formatYAMLValue(job.Content[j+1]))
+		}
+	}
+}
+
+func formatYAMLValue(n *yaml.Node) string {
+	if n == nil {
+		return "nil"
+	}
+	if n.Kind != yaml.MappingNode {
+		return fmt.Sprintf("tag=%s value=%q", n.ShortTag(), n.Value)
+	}
+	parts := make([]string, 0, len(n.Content)/2)
+	for i := 0; i+1 < len(n.Content); i += 2 {
+		k, v := n.Content[i], n.Content[i+1]
+		parts = append(parts, fmt.Sprintf("%s={tag=%s value=%q}", k.Value, v.ShortTag(), v.Value))
+	}
+	return fmt.Sprintf("%d pairs [%s]", len(n.Content)/2, strings.Join(parts, " "))
+}
+
 // GitHub ignores step env that sets GITHUB_*, so the re-gate must pass the
 // tag and peeled commit to release-gate explicitly. Checkout is only the
 // canonical tag, and the workflow retries only exit 75. publish-image
@@ -481,13 +597,14 @@ func TestWorkflowContract(t *testing.T) {
 		`"$RUNNER_TEMP/release-gate" -require-ci -tag "$RELEASE_TAG" -sha "$RELEASE_SHA"`,
 		`go build -o "$RUNNER_TEMP/release-gate"`,
 		"refs/tags/${ref}^{commit}",
-		"cancel-in-progress: false",
-		"group: release-${{ github.workflow }}-${{ startsWith(github.event.inputs.ref || github.ref, 'refs/') && (github.event.inputs.ref || github.ref) || format('refs/tags/{0}', github.event.inputs.ref) }}",
 	} {
 		if !strings.Contains(rel, want) {
 			t.Errorf("release.yml missing %q", want)
 		}
 	}
+	// Positive group / cancel-in-progress substring checks are not used.
+	// A # comment satisfies them while the live mapping is something else.
+	checkReleaseWorkflowConcurrency(t, rel)
 	if got := strings.Count(rel, "re='"+releaseTagPatternSrc+"'"); got != 4 {
 		t.Fatalf("shell tag pattern count = %d, want 4", got)
 	}
@@ -530,6 +647,9 @@ func TestWorkflowContract(t *testing.T) {
 	if strings.Contains(rel, "persist-credentials: true") {
 		t.Fatal("release.yml sets persist-credentials: true")
 	}
+	// Raw substring, including comments. The old group string fails here
+	// even when it is only a # comment. The yaml.v3 walk above is what
+	// accepts or rejects the live concurrency mapping.
 	for _, absent := range []string{
 		"ref: ${{ github.event.inputs.ref || github.ref }}",
 		"ref: ${{ github.ref }}",
