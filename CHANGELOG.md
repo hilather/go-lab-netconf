@@ -10,6 +10,17 @@
 
 ### Fixed
 
+- A manual release re-gate checks the tag against
+  `^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$` before checkout and
+  checks out only `refs/tags/<tag>`. The workflow fails unless `HEAD`
+  is `refs/tags/<tag>^{commit}`, and that commit is the `-sha` passed
+  to `release-gate`. A branch named like the tag can no longer win
+  checkout. `release-gate` exits 75 only when that tag's CI run is
+  missing or not completed, and the workflow retries only status 75.
+  A pre-release tag such as `v1.0.0-pending` does not make any other
+  error retry. `publish-image` checks out the same canonical tag,
+  records the peeled commit, and builds only the commit `tag-gate`
+  approved.
 - A `workflow_dispatch` re-gate of a release tag checks that tag when
   started from a branch. GitHub ignores the release workflow's step-env
   overrides of `GITHUB_SHA`, `GITHUB_REF` and `GITHUB_REF_NAME`, so the
