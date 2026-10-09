@@ -21,7 +21,7 @@ func TestReleaseGateAcceptsMatchingTagPush(t *testing.T) {
 func TestReleaseGateRejectsNonTagCI(t *testing.T) {
 	mark := installGH(t, oneRun(42, "completed", "success", "pull_request", "v1.2.3"), viewGreen())
 	err := requireGreenCI("", "")
-	if err == nil || !strings.Contains(err.Error(), "no matching run") {
+	if err == nil || !retryable(err) || !strings.Contains(err.Error(), "no matching run") {
 		t.Fatalf("release gate = %v, want no matching run", err)
 	}
 	assertHeadBranchRequested(t, mark)
@@ -34,7 +34,7 @@ func TestReleaseGateRejectsGreenMainWithRedTag(t *testing.T) {
 ]`
 	mark := installGH(t, list, viewByID())
 	err := requireGreenCI("", "")
-	if err == nil || strings.Contains(err.Error(), "pending") || strings.Contains(err.Error(), "no matching run") {
+	if err == nil || retryable(err) || strings.Contains(err.Error(), "pending") || strings.Contains(err.Error(), "no matching run") {
 		t.Fatalf("release gate = %v, want a red-job error", err)
 	}
 	assertHeadBranchRequested(t, mark)
@@ -47,7 +47,7 @@ func TestReleaseGatePendingNewerTagRun(t *testing.T) {
 ]`
 	mark := installGH(t, list, viewGreen())
 	err := requireGreenCI("", "")
-	if err == nil || !strings.Contains(err.Error(), "pending") || strings.Contains(err.Error(), "no matching run") {
+	if err == nil || !retryable(err) || !strings.Contains(err.Error(), "pending") || strings.Contains(err.Error(), "no matching run") {
 		t.Fatalf("release gate = %v, want pending", err)
 	}
 	assertHeadBranchRequested(t, mark)
@@ -67,7 +67,7 @@ func TestReleaseTagRejectsEmptyName(t *testing.T) {
 	t.Setenv("GITHUB_REF", "refs/heads/main")
 	t.Setenv("GITHUB_REF_NAME", "")
 	err := requireGreenCI("", "")
-	if err == nil {
+	if err == nil || retryable(err) {
 		t.Fatal("empty tag was accepted")
 	}
 	if strings.Contains(err.Error(), "pending") || strings.Contains(err.Error(), "no matching run") {
@@ -317,7 +317,7 @@ func TestReleaseGateDispatchEnvWithoutFlagsFails(t *testing.T) {
 	installGH(t, mainAndTagRuns(), viewGreen())
 	dispatchEnv(t)
 	err := requireGreenCI("", "")
-	if err == nil {
+	if err == nil || retryable(err) {
 		t.Fatal("dispatch env without -tag/-sha accepted main's push run")
 	}
 	if strings.Contains(err.Error(), "pending") || strings.Contains(err.Error(), "no matching run") {
@@ -329,7 +329,7 @@ func TestReleaseGateExplicitFlagsIgnoreMainRun(t *testing.T) {
 	mark := installGH(t, `[{"databaseId":5,"conclusion":"success","status":"completed","headSha":"`+branchSHA+`","event":"push","headBranch":"main"}]`, viewGreen())
 	dispatchEnv(t)
 	err := requireGreenCI("v1.2.3", tagSHA)
-	if err == nil || !strings.Contains(err.Error(), "no matching run") {
+	if err == nil || !retryable(err) || !strings.Contains(err.Error(), "no matching run") {
 		t.Fatalf("err=%v", err)
 	}
 	if args := listArgs(t, mark); !strings.Contains(args, "--commit="+tagSHA) {
@@ -388,7 +388,7 @@ func TestReleaseGateExplicitFlagsRejectBadValues(t *testing.T) {
 			installGH(t, tagRunAt(tagSHA), "  echo 'gh run view must not run' >&2\n  exit 9\n")
 			dispatchEnv(t)
 			err := requireGreenCI(tc.tag, tc.sha)
-			if err == nil || !strings.Contains(err.Error(), tc.want) {
+			if err == nil || retryable(err) || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("err=%v", err)
 			}
 			if strings.Contains(err.Error(), "pending") || strings.Contains(err.Error(), "no matching run") {
@@ -415,8 +415,9 @@ func TestRunUsage(t *testing.T) {
 }
 
 // GitHub ignores step env that sets GITHUB_*, so the re-gate must pass the
-// tag and commit to release-gate explicitly.
-func TestReleaseWorkflowPassesTagAndSHA(t *testing.T) {
+// tag and peeled commit to release-gate explicitly. Checkout is only the
+// canonical tag, and the workflow retries only exit 75.
+func TestWorkflowContract(t *testing.T) {
 	rel := readWorkflow(t, "release.yml")
 	for _, bad := range []string{"GITHUB_SHA:", "GITHUB_REF:", "GITHUB_REF_NAME:"} {
 		if strings.Contains(rel, bad) {
@@ -424,18 +425,96 @@ func TestReleaseWorkflowPassesTagAndSHA(t *testing.T) {
 		}
 	}
 	for _, want := range []string{
-		"RELEASE_TAG: ${{ steps.gate.outputs.ref }}",
+		"RELEASE_TAG: ${{ steps.rev.outputs.ref }}",
 		"RELEASE_SHA: ${{ steps.rev.outputs.sha }}",
-		`go run ./scripts/release-gate -require-ci -tag "$RELEASE_TAG" -sha "$RELEASE_SHA"`,
+		`"$RUNNER_TEMP/release-gate" -require-ci -tag "$RELEASE_TAG" -sha "$RELEASE_SHA"`,
+		`go build -o "$RUNNER_TEMP/release-gate"`,
+		"refs/tags/${ref}^{commit}",
 	} {
 		if !strings.Contains(rel, want) {
 			t.Errorf("release.yml missing %q", want)
 		}
 	}
+	if got := strings.Count(rel, "re='"+releaseTagPatternSrc+"'"); got != 4 {
+		t.Fatalf("shell tag pattern count = %d, want 4", got)
+	}
+	if strings.Contains(rel, `^v[0-9A-Za-z.+-]+$`) {
+		t.Fatal("old tag pattern still present")
+	}
+	if strings.Contains(rel, "steps.gate.outputs") {
+		t.Fatal("release.yml still reads steps.gate")
+	}
+	canonStep := "\n      - name: Canonicalize release ref\n"
+	checkoutStep := "\n      - uses: actions/checkout@"
+	canon := strings.Index(rel, canonStep)
+	checkout := strings.Index(rel, checkoutStep)
+	if canon < 0 || checkout < 0 || canon > checkout {
+		t.Fatal("canonicalize step must precede checkout")
+	}
+	if got := strings.Count(rel, "ref: refs/tags/${{ steps.tag.outputs.ref }}"); got != 2 {
+		t.Fatalf("canonical checkout ref count = %d, want 2", got)
+	}
+	for _, absent := range []string{
+		"ref: ${{ github.event.inputs.ref || github.ref }}",
+		"ref: ${{ github.ref }}",
+		"github.ref_name",
+		"*pending*",
+		`*"no matching run"*`,
+		`case "$out"`,
+		"COMMIT=${{ github.sha }}",
+	} {
+		if strings.Contains(rel, absent) {
+			t.Errorf("release.yml contains %q", absent)
+		}
+	}
+	wantStatus := fmt.Sprintf(`[ "$status" -eq %d ]`, exitRetryable)
+	if !strings.Contains(rel, wantStatus) {
+		t.Fatalf("workflow retry status drifted from exit %d", exitRetryable)
+	}
+	if !strings.Contains(rel, "github.event_name == 'push'") || !strings.Contains(rel, "startsWith(github.ref, 'refs/tags/v')") {
+		t.Fatal("publish-image if drifted")
+	}
+
+	gateKey := "\n  tag-gate:\n"
+	pubKey := "\n  publish-image:\n"
+	gateAt := strings.Index(rel, gateKey)
+	pubAt := strings.Index(rel, pubKey)
+	if gateAt < 0 || pubAt < 0 || gateAt > pubAt {
+		t.Fatal("job keys missing")
+	}
+	tagGate := rel[gateAt:pubAt]
+	publish := rel[pubAt:]
+	gateCanon := strings.Index(tagGate, canonStep)
+	gateCheckout := strings.Index(tagGate, checkoutStep)
+	if gateCanon < 0 || gateCheckout < 0 || gateCanon > gateCheckout {
+		t.Fatal("tag-gate: canonicalize step must precede checkout")
+	}
+	if !strings.Contains(tagGate, "refs/tags/${ref}^{commit}") || !strings.Contains(tagGate, `if [ "$head" != "$sha" ]; then`) {
+		t.Fatal("tag-gate: missing peel")
+	}
+	publishOrder := []string{
+		canonStep,
+		checkoutStep,
+		"ref: refs/tags/${{ steps.tag.outputs.ref }}",
+		"refs/tags/${ref}^{commit}",
+		`if [ "$head" != "$sha" ]; then`,
+		"VERSION=${{ steps.tag.outputs.ref }}",
+		"COMMIT=${{ steps.rev.outputs.sha }}",
+		"RELEASE_REF: ${{ steps.tag.outputs.ref }}",
+	}
+	from := 0
+	for _, sub := range publishOrder {
+		i := strings.Index(publish[from:], sub)
+		if i < 0 {
+			t.Fatalf("publish-image missing %q after previous hit", sub)
+		}
+		from += i + len(sub)
+	}
 }
 
-// The env-path tag error is fixed text, so a ref whose name contains the
-// workflow's retry words is not retried.
+// The env-path tag error is fixed text and does not echo the ref. The
+// retry signal is exit 75, and this error is not one. run([]string{"-require-ci"})
+// returns 1 for GITHUB_REF_NAME of pending, no matching run, and x-pending.
 func TestEnvTagErrorDoesNotEchoRef(t *testing.T) {
 	for _, name := range []string{"pending", "no matching run", "x-pending"} {
 		t.Run(name, func(t *testing.T) {
@@ -443,12 +522,167 @@ func TestEnvTagErrorDoesNotEchoRef(t *testing.T) {
 			dispatchEnv(t)
 			t.Setenv("GITHUB_REF_NAME", name)
 			err := requireGreenCI("", "")
-			if err == nil {
-				t.Fatal("branch name accepted as a tag")
+			if err == nil || retryable(err) {
+				t.Fatalf("branch name accepted or retryable: %v", err)
 			}
 			if strings.Contains(err.Error(), "pending") || strings.Contains(err.Error(), "no matching run") {
 				t.Fatalf("env tag error looks retryable: %v", err)
 			}
+			var errb bytes.Buffer
+			if code := run([]string{"-require-ci"}, &errb); code != 1 {
+				t.Fatalf("code %d\n%s", code, errb.String())
+			}
 		})
 	}
+}
+
+func TestReleaseTagPattern(t *testing.T) {
+	accepts := []struct {
+		raw  string
+		want string
+	}{
+		{"v1.2.3", "v1.2.3"},
+		{"v1.2.3-rc.1", "v1.2.3-rc.1"},
+		{"v1.0.0-pending", "v1.0.0-pending"},
+		{"v01.2.3", "v01.2.3"},
+		{"refs/tags/v1.2.3", "v1.2.3"},
+		{" v1.2.3 ", "v1.2.3"},
+	}
+	for _, tc := range accepts {
+		t.Run("flag/"+tc.raw, func(t *testing.T) {
+			got, err := flagTag(tc.raw)
+			if err != nil || got != tc.want {
+				t.Fatalf("flagTag(%q)=%q %v, want %q", tc.raw, got, err, tc.want)
+			}
+		})
+	}
+	t.Run("env ref prefix", func(t *testing.T) {
+		t.Setenv("GITHUB_REF", "refs/tags/v1.2.3")
+		t.Setenv("GITHUB_REF_NAME", "ignored")
+		got, err := releaseTag()
+		if err != nil || got != "v1.2.3" {
+			t.Fatalf("releaseTag=%q %v", got, err)
+		}
+	})
+	for _, name := range []string{"v1.2.3", "v1.2.3-rc.1", "v1.0.0-pending", "v01.2.3"} {
+		t.Run("env name/"+name, func(t *testing.T) {
+			t.Setenv("GITHUB_REF", "refs/heads/main")
+			t.Setenv("GITHUB_REF_NAME", name)
+			got, err := releaseTag()
+			if err != nil || got != name {
+				t.Fatalf("releaseTag=%q %v", got, err)
+			}
+		})
+	}
+	t.Run("env name padded", func(t *testing.T) {
+		t.Setenv("GITHUB_REF", "")
+		t.Setenv("GITHUB_REF_NAME", " v1.2.3 ")
+		got, err := releaseTag()
+		if err != nil || got != "v1.2.3" {
+			t.Fatalf("releaseTag=%q %v", got, err)
+		}
+	})
+	for _, raw := range []string{"vpending", "v1", "v1.2", "v1.2.3.4", "v1.2.3+meta", "main", ""} {
+		t.Run("flag reject/"+raw, func(t *testing.T) {
+			_, err := flagTag(raw)
+			if err == nil || retryable(err) {
+				t.Fatalf("flagTag(%q) err=%v", raw, err)
+			}
+		})
+		t.Run("env reject/"+raw, func(t *testing.T) {
+			t.Setenv("GITHUB_REF", "refs/heads/main")
+			t.Setenv("GITHUB_REF_NAME", raw)
+			_, err := releaseTag()
+			if err == nil || retryable(err) {
+				t.Fatalf("releaseTag(%q) err=%v", raw, err)
+			}
+		})
+	}
+}
+
+func TestExitCodes(t *testing.T) {
+	t.Run("in progress", func(t *testing.T) {
+		installGH(t, listJSON(30, "in_progress", "", "v1.2.3", tagSHA), "  echo 'view must not run' >&2\n  exit 9\n")
+		var errb bytes.Buffer
+		code := run([]string{"-require-ci", "-tag", "v1.2.3", "-sha", tagSHA}, &errb)
+		want := fmt.Sprintf("release-gate: %s CI run %d for tag %s\n", pendingPrefix, 30, "v1.2.3")
+		if code != exitRetryable || errb.String() != want || !strings.HasPrefix(errb.String(), "release-gate: pending ") {
+			t.Fatalf("code %d\n%s", code, errb.String())
+		}
+	})
+	t.Run("no match", func(t *testing.T) {
+		installGH(t, "[]", "  echo 'view must not run' >&2\n  exit 9\n")
+		var errb bytes.Buffer
+		code := run([]string{"-require-ci", "-tag", "v1.2.3", "-sha", tagSHA}, &errb)
+		want := fmt.Sprintf("release-gate: %s for tag %s at %s\n", noMatchPrefix, "v1.2.3", tagSHA)
+		msg := errb.String()
+		if code != exitRetryable || msg != want || strings.HasPrefix(msg, "release-gate: pending") {
+			t.Fatalf("code %d\n%s", code, msg)
+		}
+	})
+	t.Run("red prerelease", func(t *testing.T) {
+		const tag = "v1.0.0-pending"
+		installGH(t, listJSON(9, "completed", "success", tag, tagSHA), "  cat <<'EOF'\n"+jobsJSON("failure")+"EOF\n")
+		err := requireGreenCI(tag, tagSHA)
+		if err == nil || retryable(err) || !strings.Contains(err.Error(), "not green") {
+			t.Fatalf("err=%v", err)
+		}
+		var errb bytes.Buffer
+		if code := run([]string{"-require-ci", "-tag", tag, "-sha", tagSHA}, &errb); code != 1 || !strings.Contains(errb.String(), "not green") {
+			t.Fatalf("code %d\n%s", code, errb.String())
+		}
+	})
+	t.Run("sha pending", func(t *testing.T) {
+		const tag = "v1.0.0-pending"
+		installGH(t, listJSON(9, "completed", "success", tag, "pending"), viewGreen())
+		var errb bytes.Buffer
+		if code := run([]string{"-require-ci", "-tag", tag, "-sha", "pending"}, &errb); code != 1 {
+			t.Fatalf("code %d\n%s", code, errb.String())
+		}
+	})
+	t.Run("gh list fails", func(t *testing.T) {
+		installGHListFails(t)
+		var errb bytes.Buffer
+		if code := run([]string{"-require-ci", "-tag", "v1.0.0-pending", "-sha", tagSHA}, &errb); code != 1 {
+			t.Fatalf("code %d\n%s", code, errb.String())
+		}
+	})
+	t.Run("prerelease in progress", func(t *testing.T) {
+		const tag = "v1.0.0-pending"
+		installGH(t, listJSON(41, "in_progress", "", tag, tagSHA), "  echo 'view must not run' >&2\n  exit 9\n")
+		var errb bytes.Buffer
+		code := run([]string{"-require-ci", "-tag", tag, "-sha", tagSHA}, &errb)
+		want := fmt.Sprintf("release-gate: %s CI run %d for tag %s\n", pendingPrefix, 41, tag)
+		msg := errb.String()
+		if code != exitRetryable || msg != want || !strings.HasPrefix(msg, "release-gate: pending ") || !strings.Contains(msg, tag) {
+			t.Fatalf("code %d\n%s", code, msg)
+		}
+	})
+	t.Run("vpending", func(t *testing.T) {
+		installGH(t, listJSON(7, "completed", "success", "vpending", tagSHA), viewGreen())
+		var errb bytes.Buffer
+		code := run([]string{"-require-ci", "-tag", "vpending", "-sha", tagSHA}, &errb)
+		if code != 1 || strings.Contains(errb.String(), "vpending") {
+			t.Fatalf("code %d\n%s", code, errb.String())
+		}
+	})
+}
+
+// listJSON is one push run. headSha is the -sha passed to release-gate.
+func listJSON(id int, status, conclusion, branch, sha string) string {
+	return fmt.Sprintf(`[{"databaseId":%d,"conclusion":%q,"status":%q,"headSha":%q,"event":"push","headBranch":%q}]`,
+		id, conclusion, status, sha, branch)
+}
+
+// installGHListFails is a gh that prints the old retry words and exits 1.
+func installGHListFails(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	script := filepath.Join(dir, "gh")
+	body := "#!/bin/sh\necho pending >&2\necho 'no matching run' >&2\nexit 1\n"
+	if err := os.WriteFile(script, []byte(body), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("GH_TOKEN", "test")
 }

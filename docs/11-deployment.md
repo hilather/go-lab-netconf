@@ -19,5 +19,11 @@ Flags:
 SSH needs a host key file even on :1830. testdata ships a lab-only
 key. Never commit a production key.
 
-Tag-gate waits for the tag's own push CI run. The ref is not
-interpolated into `run:`.
+The tag is checked against
+`^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$` before checkout.
+Checkout is only `refs/tags/<tag>`. The job fails unless HEAD is
+`refs/tags/<tag>^{commit}`, and that peeled commit is passed as
+`-sha`. The gate exits 75 while the tag's own push run is missing
+or not completed. The workflow retries only status 75. The ref is
+not interpolated into `run:`. `publish-image` checks out the same
+canonical tag and runs only on a tag push.
