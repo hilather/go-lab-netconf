@@ -484,6 +484,12 @@ func checkReleaseWorkflowConcurrency(t *testing.T, rel string) {
 	if root.Kind != yaml.MappingNode {
 		t.Fatalf("release.yml root kind=%d, want a mapping", root.Kind)
 	}
+	// Fail closed on anchors, aliases and merge keys. The checks below read
+	// node values directly, and an alias or a << merge would let the
+	// resolved value differ from what they see.
+	for _, issue := range releaseYAMLAliasIssues(root, "") {
+		t.Errorf("release.yml: %s", issue)
+	}
 
 	var conc, jobs []*yaml.Node
 	for i := 0; i+1 < len(root.Content); i += 2 {
@@ -509,6 +515,30 @@ func checkReleaseWorkflowConcurrency(t *testing.T, rel string) {
 	for _, n := range jobs {
 		checkJobsHaveNoConcurrency(t, n)
 	}
+}
+
+// releaseYAMLAliasIssues reports every anchor, alias and merge key under n.
+func releaseYAMLAliasIssues(n *yaml.Node, path string) []string {
+	var issues []string
+	if n.Anchor != "" {
+		issues = append(issues, fmt.Sprintf("%s: anchor &%s is not allowed", path, n.Anchor))
+	}
+	if n.Kind == yaml.AliasNode {
+		return append(issues, fmt.Sprintf("%s: alias *%s is not allowed", path, n.Value))
+	}
+	for i, c := range n.Content {
+		p := fmt.Sprintf("%s[%d]", path, i)
+		if n.Kind == yaml.MappingNode && i%2 == 0 {
+			if c.Value == "<<" && c.ShortTag() == "!!merge" {
+				issues = append(issues, fmt.Sprintf("%s: merge key << is not allowed", p))
+			}
+			p = path + "." + c.Value
+		} else if n.Kind == yaml.MappingNode {
+			p = path + "." + n.Content[i-1].Value
+		}
+		issues = append(issues, releaseYAMLAliasIssues(c, p)...)
+	}
+	return issues
 }
 
 func checkConcurrencyBlock(t *testing.T, n *yaml.Node) {
@@ -1049,4 +1079,31 @@ func installGHListFails(t *testing.T) {
 	}
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("GH_TOKEN", "test")
+}
+
+func TestReleaseYAMLAliasIssues(t *testing.T) {
+	cases := []struct{ name, doc string }{
+		{"alias bool", "flag: &false true\nconcurrency:\n  group: x\n  cancel-in-progress: *false\n"},
+		{"merge job concurrency", "base: &b\n  concurrency: x\njobs:\n  publish-image:\n    <<: *b\n    runs-on: ubuntu-latest\n"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var doc yaml.Node
+			if err := yaml.Unmarshal([]byte(tc.doc), &doc); err != nil {
+				t.Fatal(err)
+			}
+			if got := releaseYAMLAliasIssues(doc.Content[0], ""); len(got) == 0 {
+				t.Fatal("no issues, want anchor/alias/merge rejected")
+			} else {
+				t.Logf("issues: %q", got)
+			}
+		})
+	}
+	var doc yaml.Node
+	if err := yaml.Unmarshal([]byte("a: 1\nb:\n  c: [x, y]\n"), &doc); err != nil {
+		t.Fatal(err)
+	}
+	if got := releaseYAMLAliasIssues(doc.Content[0], ""); len(got) != 0 {
+		t.Fatalf("plain document issues = %q, want none", got)
+	}
 }
