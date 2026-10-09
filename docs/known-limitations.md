@@ -16,6 +16,10 @@ keys reject `enabled: true` at validate. TLS-001 is v1.1.
 - Single replica. Memory store only. Reset and restart wipe the
   notification log and audit ring.
 - No OAuth PRM. No Prometheus client. No writable-running capability.
+- SSH `authorized_keys` options (`from=`, `command=`, `restrict`, and
+  the rest) are parsed but not enforced at login. Only the key material
+  is checked. A change to a key's options still counts as a credential
+  change and closes that user's SSH connections.
 - In-protocol NETCONF `<kill-session>` lets any read-write user kill
   another session. A read-only user gets access-denied. Admin
   `POST /v1/sessions/{id}:kill` is the scoped `netconf.admin` path.
