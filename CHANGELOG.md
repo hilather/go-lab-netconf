@@ -10,6 +10,12 @@
 
 ### Fixed
 
+- The release concurrency group is the same for a tag push and for a
+  manual re-gate of that tag. A bare `workflow_dispatch` ref is
+  prefixed with `refs/tags/`, so `vX.Y.Z` and `refs/tags/vX.Y.Z` share
+  a group with each other and with the push of that tag. A ref that
+  already starts with `refs/` is unchanged. `cancel-in-progress` stays
+  false. Padded input is not trimmed, so it does not join that group.
 - A manual release re-gate checks the tag against
   `^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$` before checkout and
   checks out only `refs/tags/<tag>`. The workflow fails unless `HEAD`

@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestReleaseGateAcceptsMatchingTagPush(t *testing.T) {
@@ -479,6 +481,8 @@ func TestWorkflowContract(t *testing.T) {
 		`"$RUNNER_TEMP/release-gate" -require-ci -tag "$RELEASE_TAG" -sha "$RELEASE_SHA"`,
 		`go build -o "$RUNNER_TEMP/release-gate"`,
 		"refs/tags/${ref}^{commit}",
+		"cancel-in-progress: false",
+		"group: release-${{ github.workflow }}-${{ startsWith(github.event.inputs.ref || github.ref, 'refs/') && (github.event.inputs.ref || github.ref) || format('refs/tags/{0}', github.event.inputs.ref) }}",
 	} {
 		if !strings.Contains(rel, want) {
 			t.Errorf("release.yml missing %q", want)
@@ -534,6 +538,7 @@ func TestWorkflowContract(t *testing.T) {
 		`*"no matching run"*`,
 		`case "$out"`,
 		"COMMIT=${{ github.sha }}",
+		"group: release-${{ github.workflow }}-${{ github.event.inputs.ref || github.ref }}",
 	} {
 		if strings.Contains(rel, absent) {
 			t.Errorf("release.yml contains %q", absent)
@@ -603,6 +608,104 @@ func TestWorkflowContract(t *testing.T) {
 			t.Fatalf("publish-image missing %q after previous hit", sub)
 		}
 		from += i + len(sub)
+	}
+}
+
+// ciJobsNotRequired lists CI job display names the release gate does not
+// require, each with a reason. Any CI job not gated on release must be
+// listed here with a reason.
+var ciJobsNotRequired = map[string]string{}
+
+// TestRequiredCIJobsMatchCIWorkflow fails unless ci.yml's display names,
+// minus ciJobsNotRequired, are exactly requiredCIJobs. A matrix multiplies
+// GitHub check names, so strategy.matrix is rejected. Display name is the
+// job's name, or the job id when name is unset.
+func TestRequiredCIJobsMatchCIWorkflow(t *testing.T) {
+	required := make(map[string]int, len(requiredCIJobs))
+	for _, name := range requiredCIJobs {
+		required[name]++
+		if required[name] > 1 {
+			t.Errorf("requiredCIJobs lists %q more than once", name)
+		}
+	}
+
+	// scripts/release-gate -> repo root.
+	body, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "ci.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Jobs map[string]struct {
+			Name     string         `yaml:"name"`
+			Strategy map[string]any `yaml:"strategy"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal(body, &doc); err != nil {
+		t.Fatalf("ci.yml: %v", err)
+	}
+	if len(doc.Jobs) == 0 {
+		t.Fatal("ci.yml has no jobs")
+	}
+
+	ids := make([]string, 0, len(doc.Jobs))
+	for id := range doc.Jobs {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	displayOf := make(map[string]string, len(ids))
+	for _, id := range ids {
+		job := doc.Jobs[id]
+		if _, ok := job.Strategy["matrix"]; ok {
+			t.Errorf("ci.yml job %q has strategy.matrix; a matrix multiplies check names", id)
+		}
+		name := job.Name
+		if name == "" {
+			name = id
+		}
+		if prev, ok := displayOf[name]; ok {
+			t.Errorf("ci.yml jobs %q and %q share display name %q", prev, id, name)
+			continue
+		}
+		displayOf[name] = id
+	}
+
+	exceptNames := make([]string, 0, len(ciJobsNotRequired))
+	for name := range ciJobsNotRequired {
+		exceptNames = append(exceptNames, name)
+	}
+	sort.Strings(exceptNames)
+	for _, name := range exceptNames {
+		if _, ok := displayOf[name]; !ok {
+			t.Errorf("ciJobsNotRequired names %q, which is not a ci.yml display name", name)
+		}
+		if required[name] > 0 {
+			t.Errorf("ciJobsNotRequired names %q, which is also in requiredCIJobs", name)
+		}
+	}
+
+	var onlyCI, onlyRequired []string
+	for name := range displayOf {
+		if _, skip := ciJobsNotRequired[name]; skip {
+			continue
+		}
+		if required[name] == 0 {
+			onlyCI = append(onlyCI, name)
+		}
+	}
+	for name := range required {
+		if _, skip := ciJobsNotRequired[name]; skip {
+			onlyRequired = append(onlyRequired, name)
+			continue
+		}
+		if _, ok := displayOf[name]; !ok {
+			onlyRequired = append(onlyRequired, name)
+		}
+	}
+	if len(onlyCI) > 0 || len(onlyRequired) > 0 {
+		sort.Strings(onlyCI)
+		sort.Strings(onlyRequired)
+		t.Errorf("ci.yml display names minus ciJobsNotRequired != requiredCIJobs\n  ci.yml only: %q\n  requiredCIJobs only: %q", onlyCI, onlyRequired)
 	}
 }
 
