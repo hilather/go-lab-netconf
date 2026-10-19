@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-rc.3] - 2026-10-19
+
 ### Changed
 
 - Go toolchain pinned to go1.26.9 (go.mod `toolchain`, CI and release `GO_VERSION`, Dockerfile); 1.26.0–1.26.8 lack current stdlib security fixes, most recently the Go 1.26.9 fixes (GO-2026-6603 to -6605, -6607 to -6613 and -6617 in `net/http`, `net/textproto`, `mime/multipart`, `crypto/tls` and `os`). `golang.org/x/net` is not a dependency of this module.
