@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Go toolchain 1.26.9 → 1.26.10 (go.mod `toolchain`, CI and release `GO_VERSION`, Dockerfile `golang:1.26.10-alpine`); 1.26.9 lacks the crypto/x509 fix for GO-2026-6809.
+
 ## [1.0.0-rc.3] - 2026-10-19
 
 ### Changed
